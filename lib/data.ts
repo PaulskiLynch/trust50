@@ -1,12 +1,30 @@
 import { GroupStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { getVisibleGroupWhereClause, groupWithRelations } from "@/lib/groups";
+import { getVisibleGroupWhereClause, groupWithRelations, publicDiscoveryGroup } from "@/lib/groups";
 
 export async function getGroupsWithRelations(userId?: string | null) {
   return prisma.group.findMany({
     ...groupWithRelations,
     where: getVisibleGroupWhereClause(userId),
+    orderBy: [
+      {
+        status: "desc",
+      },
+      {
+        memberCount: "desc",
+      },
+      {
+        createdAt: "desc",
+      },
+    ],
+  });
+}
+
+export async function getPublicDiscoveryGroups() {
+  return prisma.group.findMany({
+    ...publicDiscoveryGroup,
+    where: getVisibleGroupWhereClause(null),
     orderBy: [
       {
         status: "desc",
@@ -27,6 +45,16 @@ export async function getGroupById(groupId: string, userId?: string | null) {
     where: {
       id: groupId,
       ...getVisibleGroupWhereClause(userId),
+    },
+  });
+}
+
+export async function getPublicGroupById(groupId: string) {
+  return prisma.group.findFirst({
+    ...publicDiscoveryGroup,
+    where: {
+      id: groupId,
+      ...getVisibleGroupWhereClause(null),
     },
   });
 }

@@ -3,8 +3,8 @@ import { MembershipRole, MembershipStatus } from "@prisma/client";
 import { z } from "zod";
 
 import { getAuthSession } from "@/lib/auth";
-import { getGroupById } from "@/lib/data";
-import { getGroupCapacityEligibility } from "@/lib/groups";
+import { getGroupById, getPublicGroupById } from "@/lib/data";
+import { getGroupCapacityEligibility, safeUserSelect } from "@/lib/groups";
 import { prisma } from "@/lib/prisma";
 
 type RouteContext = {
@@ -22,10 +22,21 @@ const applySchema = z.object({
 export async function GET(_: Request, context: RouteContext) {
   const session = await getAuthSession();
   const { id } = await context.params;
-  const group = await getGroupById(id, session?.user?.id);
+
+  const group = session?.user?.id
+    ? await getGroupById(id, session.user.id)
+    : await getPublicGroupById(id);
 
   if (!group) {
     return NextResponse.json({ error: "Group not found" }, { status: 404 });
+  }
+
+  if (!session?.user?.id) {
+    return NextResponse.json({
+      ...group,
+      memberships: [],
+      requests: [],
+    });
   }
 
   return NextResponse.json(group);
@@ -72,9 +83,13 @@ export async function POST(req: Request, context: RouteContext) {
       },
     },
     include: {
-      recommendedBy: true,
+      recommendedBy: {
+        select: safeUserSelect,
+      },
       votes: true,
-      user: true,
+      user: {
+        select: safeUserSelect,
+      },
     },
   });
 
@@ -113,9 +128,13 @@ export async function POST(req: Request, context: RouteContext) {
       relevantContext: payload.relevantContext.trim(),
     },
     include: {
-      recommendedBy: true,
+      recommendedBy: {
+        select: safeUserSelect,
+      },
       votes: true,
-      user: true,
+      user: {
+        select: safeUserSelect,
+      },
     },
   });
 

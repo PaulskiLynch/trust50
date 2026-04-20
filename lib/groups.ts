@@ -2,16 +2,63 @@ import { GroupStatus, MembershipStatus, Prisma, PrismaClient } from "@prisma/cli
 
 export const MAX_MEMBER_GROUPS = 4;
 
+export const publicUserSelect = Prisma.validator<Prisma.UserSelect>()({
+  id: true,
+  name: true,
+  avatarUrl: true,
+  headline: true,
+  linkedinUrl: true,
+  createdAt: true,
+});
+
+export const safeUserSelect = Prisma.validator<Prisma.UserSelect>()({
+  id: true,
+  email: true,
+  name: true,
+  avatarUrl: true,
+  headline: true,
+  linkedinUrl: true,
+  createdAt: true,
+});
+
+export const publicDiscoveryGroup = Prisma.validator<Prisma.GroupDefaultArgs>()({
+  include: {
+    owner: {
+      select: publicUserSelect,
+    },
+    memberships: {
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    },
+  },
+});
+
 export const groupWithRelations = Prisma.validator<Prisma.GroupDefaultArgs>()({
   include: {
-    owner: true,
+    owner: {
+      select: safeUserSelect,
+    },
     memberships: {
       include: {
-        user: true,
-        recommendedBy: true,
+        user: {
+          select: safeUserSelect,
+        },
+        recommendedBy: {
+          select: safeUserSelect,
+        },
         votes: {
           include: {
-            voter: true,
+            voter: {
+              select: safeUserSelect,
+            },
           },
           orderBy: {
             createdAt: "asc",
@@ -24,10 +71,14 @@ export const groupWithRelations = Prisma.validator<Prisma.GroupDefaultArgs>()({
     },
     requests: {
       include: {
-        creator: true,
+        creator: {
+          select: safeUserSelect,
+        },
         replies: {
           include: {
-            sender: true,
+            sender: {
+              select: safeUserSelect,
+            },
           },
           orderBy: {
             createdAt: "asc",
@@ -35,8 +86,12 @@ export const groupWithRelations = Prisma.validator<Prisma.GroupDefaultArgs>()({
         },
         introductions: {
           include: {
-            connector: true,
-            targetUser: true,
+            connector: {
+              select: safeUserSelect,
+            },
+            targetUser: {
+              select: safeUserSelect,
+            },
             conversation: {
               select: {
                 id: true,
@@ -58,6 +113,7 @@ export const groupWithRelations = Prisma.validator<Prisma.GroupDefaultArgs>()({
 });
 
 export type GroupWithRelations = Prisma.GroupGetPayload<typeof groupWithRelations>;
+export type PublicDiscoveryGroup = Prisma.GroupGetPayload<typeof publicDiscoveryGroup>;
 
 export function getGroupStatusFromMemberCount(memberCount: number): GroupStatus {
   if (memberCount >= 10) {

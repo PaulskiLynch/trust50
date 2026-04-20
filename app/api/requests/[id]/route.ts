@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getAuthSession } from "@/lib/auth";
+import { safeUserSelect } from "@/lib/groups";
 import { prisma } from "@/lib/prisma";
 
 const updateRequestSchema = z.object({
@@ -39,24 +40,40 @@ export async function GET(_: Request, context: RouteContext) {
   const requestRecord = await prisma.request.findUnique({
     where: { id },
     include: {
-      creator: true,
+      creator: {
+        select: safeUserSelect,
+      },
       group: {
         include: {
-          owner: true,
+          owner: {
+            select: safeUserSelect,
+          },
           memberships: {
-            include: { user: true },
+            include: {
+              user: {
+                select: safeUserSelect,
+              },
+            },
             orderBy: { createdAt: "asc" },
           },
         },
       },
       replies: {
-        include: { sender: true },
+        include: {
+          sender: {
+            select: safeUserSelect,
+          },
+        },
         orderBy: { createdAt: "asc" },
       },
       introductions: {
         include: {
-          connector: true,
-          targetUser: true,
+          connector: {
+            select: safeUserSelect,
+          },
+          targetUser: {
+            select: safeUserSelect,
+          },
           conversation: {
             select: {
               id: true,

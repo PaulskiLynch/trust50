@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getAuthSession } from "@/lib/auth";
 import { getConversationForUser } from "@/lib/conversations";
+import { safeUserSelect } from "@/lib/groups";
 import { prisma } from "@/lib/prisma";
 
 const createMessageSchema = z.object({
@@ -39,7 +40,9 @@ export async function POST(req: Request, context: RouteContext) {
         body: payload.body,
       },
       include: {
-        sender: true,
+        sender: {
+          select: safeUserSelect,
+        },
       },
     });
 

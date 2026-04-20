@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getAuthSession } from "@/lib/auth";
 import { getGroupById } from "@/lib/data";
+import { safeUserSelect } from "@/lib/groups";
 import { prisma } from "@/lib/prisma";
 
 type RouteContext = {
@@ -57,9 +58,13 @@ export async function POST(req: Request, context: RouteContext) {
       status: MembershipStatus.waitlist,
     },
     include: {
-      user: true,
+      user: {
+        select: safeUserSelect,
+      },
       votes: true,
-      recommendedBy: true,
+      recommendedBy: {
+        select: safeUserSelect,
+      },
     },
   });
 
@@ -82,11 +87,17 @@ export async function POST(req: Request, context: RouteContext) {
       recommendedByUserId: session.user.id,
     },
     include: {
-      user: true,
-      recommendedBy: true,
+      user: {
+        select: safeUserSelect,
+      },
+      recommendedBy: {
+        select: safeUserSelect,
+      },
       votes: {
         include: {
-          voter: true,
+          voter: {
+            select: safeUserSelect,
+          },
         },
         orderBy: {
           createdAt: "asc",

@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { getAuthSession } from "@/lib/auth";
 import { getGroupById } from "@/lib/data";
-import { getMembershipVoteThreshold, syncGroupLifecycle } from "@/lib/groups";
+import { getMembershipVoteThreshold, safeUserSelect, syncGroupLifecycle } from "@/lib/groups";
 import { prisma } from "@/lib/prisma";
 
 type RouteContext = {
@@ -121,11 +121,17 @@ export async function POST(req: Request, context: RouteContext) {
     const membership = await tx.membership.findUniqueOrThrow({
       where: { id: targetMembership.id },
       include: {
-        user: true,
-        recommendedBy: true,
+        user: {
+          select: safeUserSelect,
+        },
+        recommendedBy: {
+          select: safeUserSelect,
+        },
         votes: {
           include: {
-            voter: true,
+            voter: {
+              select: safeUserSelect,
+            },
           },
           orderBy: {
             createdAt: "asc",

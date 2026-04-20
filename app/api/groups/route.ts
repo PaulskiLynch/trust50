@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getAuthSession } from "@/lib/auth";
-import { getGroupsWithRelations } from "@/lib/data";
+import { getGroupsWithRelations, getPublicDiscoveryGroups } from "@/lib/data";
 import { syncGroupLifecycle } from "@/lib/groups";
 import { prisma } from "@/lib/prisma";
 
@@ -17,7 +17,12 @@ const createGroupSchema = z.object({
 
 export async function GET() {
   const session = await getAuthSession();
-  return NextResponse.json(await getGroupsWithRelations(session?.user?.id));
+
+  if (!session?.user?.id) {
+    return NextResponse.json(await getPublicDiscoveryGroups());
+  }
+
+  return NextResponse.json(await getGroupsWithRelations(session.user.id));
 }
 
 export async function POST(req: Request) {

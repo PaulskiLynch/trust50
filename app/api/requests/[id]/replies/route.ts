@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getAuthSession } from "@/lib/auth";
+import { safeUserSelect } from "@/lib/groups";
 import { prisma } from "@/lib/prisma";
 
 const createReplySchema = z.object({
@@ -57,7 +58,9 @@ export async function POST(req: Request, context: RouteContext) {
         signal: payload.signal || null,
       },
       include: {
-        sender: true,
+        sender: {
+          select: safeUserSelect,
+        },
       },
     });
 
