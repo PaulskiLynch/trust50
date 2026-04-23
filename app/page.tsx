@@ -5,8 +5,6 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { ProfileCard } from "@/components/ProfileCard";
-
 type User = {
   id: string;
   email: string;
@@ -90,7 +88,7 @@ type TriageRow = {
   lastActivityLabel: string;
   latestPreview: string;
   actionLabel: string;
-  mode: "judgment" | "first-reply";
+  mode: "judgment" | "first-reply" | "attestation";
   urgency: "urgent" | "decision" | "steady";
   timestamp: number;
 };
@@ -100,7 +98,6 @@ type ReviewRow = {
   groupId: string;
   groupName: string;
   candidateCount: number;
-  latestApplicant: string;
 };
 
 type HotPerson = {
@@ -126,6 +123,12 @@ function formatRelativeTime(value: string | number) {
 
 function formatCompactNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function urgencyLabel(urgency: TriageRow["urgency"]) {
+  if (urgency === "urgent") return "Overdue";
+  if (urgency === "decision") return "Needs review";
+  return "Fresh";
 }
 
 function discussionTitle(request: Request) {
@@ -160,6 +163,26 @@ function getDiscussionsNeedingInput(group: Group, currentUserId: string) {
 
 function getRepliesInMotion(group: Group) {
   return group.requests.filter((request) => request.status === "open" && request.replies.length > 0).length;
+}
+
+function groupStatusCopy(group: Group, currentUserId: string) {
+  const needsInput = getDiscussionsNeedingInput(group, currentUserId);
+  const inReview = group.memberships.filter((membership) => membership.status === "pending").length;
+  const openTopics = group.requests.filter((request) => request.status === "open").length;
+
+  if (inReview) {
+    return `${inReview} candidate${inReview === 1 ? "" : "s"} awaiting review`;
+  }
+
+  if (needsInput) {
+    return `${needsInput} item${needsInput === 1 ? "" : "s"} need input`;
+  }
+
+  if (openTopics) {
+    return `${openTopics} open topic${openTopics === 1 ? "" : "s"}`;
+  }
+
+  return "Quiet";
 }
 
 export default function Home() {
@@ -231,8 +254,6 @@ export default function Home() {
     });
   }, [currentUserId, memberGroups]);
 
-  const cockpitGroups = useMemo(() => prioritizedGroups.slice(0, 4), [prioritizedGroups]);
-
   const totalWaiting = useMemo(
     () =>
       prioritizedGroups.reduce(
@@ -257,22 +278,30 @@ export default function Home() {
     [prioritizedGroups],
   );
 
+  const activeMemberSlotsUsed = useMemo(
+    () =>
+      prioritizedGroups.filter((group) =>
+        group.memberships.some(
+          (membership) =>
+            membership.userId === currentUserId &&
+            membership.status === "active" &&
+            membership.role !== "owner",
+        ),
+      ).length,
+    [currentUserId, prioritizedGroups],
+  );
+
   const reviewRows = useMemo<ReviewRow[]>(
     () =>
       prioritizedGroups
         .map((group) => {
           const candidates = group.memberships.filter((membership) => membership.status === "pending");
-          const latestApplicant = candidates.at(-1);
 
           return {
             id: `review-${group.id}`,
             groupId: group.id,
             groupName: group.name,
             candidateCount: candidates.length,
-            latestApplicant:
-              latestApplicant?.user?.name ||
-              latestApplicant?.user?.email ||
-              (candidates.length ? "Candidate awaiting review" : ""),
           };
         })
         .filter((row) => row.candidateCount > 0),
@@ -303,15 +332,17 @@ export default function Home() {
     };
   }, [currentUserId, memberGroups]);
 
-  const triageRows = useMemo<TriageRow[]>(() => {
+  const triageRows = useMemo((): TriageRow[] => {
     if (!currentUserId) return [];
 
     const rows = prioritizedGroups.flatMap((group) =>
       group.requests
         .filter((request) => request.status === "open")
-        .map((request) => {
+        .reduce<TriageRow[]>((items, request) => {
           const userAlreadyReplied = request.replies.some((reply) => reply.senderId === currentUserId);
-          if (request.creatorId === currentUserId || userAlreadyReplied) return null;
+          if (request.creatorId === currentUserId || userAlreadyReplied) {
+            return items;
+          }
 
           const lastActivity = Math.max(
             +new Date(request.createdAt),
@@ -320,7 +351,7 @@ export default function Home() {
           const ageHours = (Date.now() - lastActivity) / (60 * 60 * 1000);
           const latestReply = request.replies.at(-1);
 
-          return {
+          items.push({
             id: `triage-${group.id}-${request.id}`,
             groupId: group.id,
             groupName: group.name,
@@ -329,17 +360,35 @@ export default function Home() {
             startedBy: request.creator?.name || request.creator?.email || "Unknown member",
             lastActivityLabel: request.replies.length ? "needs your judgment" : "needs first reply",
             latestPreview: shortenText(latestReply?.body || request.content, 120),
-            actionLabel: request.replies.length ? "Challenge or connect" : "Add first useful reply",
+            actionLabel: request.replies.length ? "Add perspective" : "Add first useful reply",
             mode: request.replies.length ? "judgment" : "first-reply",
             urgency: ageHours <= 24 ? "urgent" : request.replies.length ? "decision" : "steady",
             timestamp: lastActivity,
-          } satisfies TriageRow;
-        })
-        .filter((item): item is TriageRow => item !== null),
+          });
+
+          return items;
+        }, []),
     );
 
+    reviewRows.forEach((row) => {
+      rows.push({
+        id: row.id,
+        groupId: row.groupId,
+        groupName: row.groupName,
+        discussionId: "",
+        discussionTitle: `${row.candidateCount} candidate${row.candidateCount === 1 ? "" : "s"} need member review`,
+        startedBy: "Room governance",
+        lastActivityLabel: "awaiting attestation",
+        latestPreview: "Attest fit only when you would be comfortable sharing the room with this person.",
+        actionLabel: "Review candidates",
+        mode: "attestation",
+        urgency: "decision",
+        timestamp: Date.now(),
+      });
+    });
+
     return rows.sort((left, right) => right.timestamp - left.timestamp).slice(0, 6);
-  }, [currentUserId, prioritizedGroups]);
+  }, [currentUserId, prioritizedGroups, reviewRows]);
 
   const recentOutcomes = useMemo(() => {
     return prioritizedGroups
@@ -415,6 +464,7 @@ export default function Home() {
 
     return {
       id: currentProfile.id,
+      email: currentProfile.email,
       name: currentProfile.name,
       avatarUrl: currentProfile.avatarUrl ?? null,
       headline: currentProfile.headline ?? null,
@@ -572,66 +622,153 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background px-6 py-10 text-foreground">
-      <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.35fr_0.75fr]">
-        <div className="space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="grid gap-6 xl:grid-cols-[1.45fr_0.8fr]">
           <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Trust50 cockpit</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight">Your network home</h1>
-                <p className="mt-1 text-sm text-muted">
+                <h1 className="mt-2 text-4xl font-semibold tracking-tight">Your network home</h1>
+                <p className="mt-2 text-sm leading-7 text-muted">
                   Four rooms. One control centre for the decisions, reviews, and outcomes that matter right now.
                 </p>
-                <p className="mt-2 text-sm text-muted">
+                <p className="mt-2 text-sm leading-7 text-muted">
                   Members can join up to 4 groups, enough to know the room and still move across Trust50 with context.
                 </p>
-                {currentUserId ? (
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Room slots</p>
-                      <p className="mt-2 text-2xl font-semibold">{cockpitGroups.length}/4</p>
-                    </div>
-                    <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Direct peers</p>
-                      <p className="mt-2 text-2xl font-semibold">{formatCompactNumber(networkReach.directPeers)}</p>
-                    </div>
-                    <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Extended reach</p>
-                      <p className="mt-2 text-2xl font-semibold">~{formatCompactNumber(networkReach.estimatedExtendedReach)}</p>
-                    </div>
-                    <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Waiting rooms</p>
-                      <p className="mt-2 text-2xl font-semibold">{totalWaiting}</p>
-                    </div>
-                    <p className="text-sm text-muted sm:col-span-2 lg:col-span-4">
-                      Pathfinder: {pathfinderHint}
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Room slots</p>
+                    <p className={`mt-2 text-3xl font-semibold ${activeMemberSlotsUsed >= 4 ? "text-amber-700" : ""}`}>
+                      {activeMemberSlotsUsed}/4
                     </p>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Direct peers</p>
+                    <p className="mt-2 text-3xl font-semibold">{formatCompactNumber(networkReach.directPeers)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Extended reach</p>
+                    <p className="mt-2 text-3xl font-semibold">~{formatCompactNumber(networkReach.estimatedExtendedReach)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Waiting rooms</p>
+                    <p className="mt-2 text-3xl font-semibold">{totalWaiting}</p>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-sm text-muted">
+                  {activeMemberSlotsUsed >= 4
+                    ? "You are using all 4 member slots. To join a new room, leave one or start running a room."
+                    : "Member slots are capped at 4 so your room graph stays legible."}
+                </p>
+                <p className="mt-2 text-sm text-muted">Pathfinder: {pathfinderHint}</p>
+              </div>
+
+              <div className="space-y-4 lg:w-[270px]">
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <Link
+                    href="/landing"
+                    className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                  >
+                    View landing page
+                  </Link>
+                  <Link
+                    href="/how-it-works"
+                    className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                  >
+                    How Trust50 works
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => void handleSignOut()}
+                    className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                  >
+                    Sign out
+                  </button>
+                </div>
+
+                {currentUser ? (
+                  <div className="rounded-2xl border border-line bg-panel p-4">
+                    <div className="flex items-start gap-3">
+                      {currentUser.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={currentUser.avatarUrl}
+                          alt={currentUser.name || "Current user"}
+                          className="h-14 w-14 rounded-2xl object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-foreground text-lg font-semibold text-white">
+                          {(currentUser.name || currentUser.email).slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">{currentUser.name || currentUser.email}</p>
+                        <p className="mt-1 text-sm text-muted">{currentUser.headline || "Trust50 member"}</p>
+                        <p className="mt-2 text-xs text-muted">
+                          {currentUser.helpfulRepliesCount} helpful repl{currentUser.helpfulRepliesCount === 1 ? "y" : "ies"} recently
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 ) : null}
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href="/landing"
-                  className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
-                >
-                  View landing page
-                </Link>
-                <Link
-                  href="/how-it-works"
-                  className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
-                >
-                  How Trust50 works
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => void handleSignOut()}
-                  className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
-                >
-                  Sign out
-                </button>
-              </div>
             </div>
           </section>
+
+          <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">My groups</h2>
+                <p className="mt-1 text-sm text-muted">The rooms that need your attention first.</p>
+              </div>
+              <Link
+                href="/explore-groups"
+                className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+              >
+                Browse available rooms
+              </Link>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {!prioritizedGroups.length ? (
+                <p className="text-sm text-muted">You are not in any rooms yet.</p>
+              ) : (
+                prioritizedGroups.slice(0, 4).map((group) => {
+                  const needsInput = getDiscussionsNeedingInput(group, currentUserId!);
+                  const statusCopy = groupStatusCopy(group, currentUserId!);
+
+                  return (
+                    <Link
+                      key={group.id}
+                      href={`/groups/${group.id}`}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-panel px-4 py-4 transition hover:border-foreground"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">{group.name}</p>
+                        <p className="mt-1 text-sm text-muted">{statusCopy}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${
+                            needsInput || group.memberships.some((membership) => membership.status === "pending")
+                              ? "bg-emerald-500"
+                              : "bg-stone-900"
+                          }`}
+                        />
+                        <span className="text-sm font-medium text-foreground">Open</span>
+                      </div>
+                    </Link>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[1.45fr_0.8fr]">
+          <div className="space-y-6">
 
           {flash ? (
             <div className="rounded-2xl border border-line bg-white px-5 py-3 text-sm text-muted shadow-sm">
@@ -671,8 +808,8 @@ export default function Home() {
                 </p>
               </div>
 
-              <span className="rounded-full bg-panel px-4 py-2 text-sm text-muted">
-                {triageRows.length} active signal{triageRows.length === 1 ? "" : "s"}
+              <span className="rounded-full bg-rose-100 px-4 py-2 text-sm font-medium text-rose-800">
+                {triageRows.length} active signal{triageRows.length === 1 ? "" : "s"} need attention
               </span>
             </div>
 
@@ -697,7 +834,11 @@ export default function Home() {
                       <p className="mt-1 text-sm font-medium text-foreground">{item.startedBy} needs movement</p>
                     </div>
                     <span className="rounded-full border border-line bg-white px-3 py-1 text-xs font-medium text-foreground">
-                      {item.mode === "first-reply" ? "First reply" : "Judgment needed"}
+                      {item.mode === "attestation"
+                        ? "Attestation"
+                        : item.mode === "first-reply"
+                          ? "First reply"
+                          : "Judgment needed"}
                     </span>
                   </div>
                   <p className="mt-3 text-[15px] font-medium leading-6 text-foreground">&ldquo;{item.discussionTitle}&rdquo;</p>
@@ -705,7 +846,7 @@ export default function Home() {
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
                     <span className="rounded-full bg-white px-3 py-1">{item.actionLabel}</span>
                     <span>{item.lastActivityLabel}</span>
-                    <span>{formatRelativeTime(item.timestamp)}</span>
+                    <span>{urgencyLabel(item.urgency)}</span>
                   </div>
                 </Link>
               ))}
@@ -749,22 +890,23 @@ export default function Home() {
               </span>
             </div>
 
-            <div className="mt-5 space-y-3">
-              {!reviewRows.length ? <p className="text-sm text-muted">No candidates are waiting for attestations.</p> : null}
-
-              {reviewRows.map((row) => (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-4">
+              <p className="text-sm font-medium text-foreground">
+                {totalInReview
+                  ? `${totalInReview} candidate${totalInReview === 1 ? "" : "s"} need attestation across your rooms.`
+                  : "No candidates are waiting for attestations."}
+              </p>
+              <p className="mt-2 text-sm text-muted">
+                Attestation now shows up in Input required so governance sits with the rest of your work.
+              </p>
+              {reviewRows[0] ? (
                 <Link
-                  key={row.id}
-                  href={`/groups/${row.groupId}/votes`}
-                  className="block rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-4 transition hover:-translate-y-0.5 hover:shadow-sm"
+                  href={`/groups/${reviewRows[0].groupId}/votes`}
+                  className="mt-3 inline-flex rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
                 >
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">{row.groupName}</p>
-                  <p className="mt-2 font-medium text-foreground">
-                    {row.candidateCount} candidate{row.candidateCount === 1 ? "" : "s"} need attestation
-                  </p>
-                  <p className="mt-1 text-sm text-muted">Latest: {row.latestApplicant}</p>
+                  Open review queue
                 </Link>
-              ))}
+              ) : null}
             </div>
           </section>
 
@@ -815,9 +957,9 @@ export default function Home() {
             </div>
           </section>
 
-          {currentUser ? <ProfileCard user={currentUser} /> : null}
         </aside>
       </div>
+    </div>
     </main>
   );
 }
