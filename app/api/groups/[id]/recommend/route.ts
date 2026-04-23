@@ -36,7 +36,7 @@ export async function POST(req: Request, context: RouteContext) {
   );
 
   if (!recommenderMembership && group.ownerId !== session.user.id) {
-    return NextResponse.json({ error: "Only active members can recommend applicants." }, { status: 403 });
+    return NextResponse.json({ error: "Only active members can sponsor applicants." }, { status: 403 });
   }
 
   let payload: z.infer<typeof recommendSchema>;
@@ -45,10 +45,10 @@ export async function POST(req: Request, context: RouteContext) {
     payload = recommendSchema.parse(await req.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid recommendation" }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid sponsorship" }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Invalid recommendation" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid sponsorship" }, { status: 400 });
   }
 
   const targetMembership = await prisma.membership.findFirst({
@@ -73,11 +73,11 @@ export async function POST(req: Request, context: RouteContext) {
   }
 
   if (targetMembership.userId === session.user.id) {
-    return NextResponse.json({ error: "You cannot recommend your own application." }, { status: 400 });
+    return NextResponse.json({ error: "You cannot sponsor your own application." }, { status: 400 });
   }
 
   if (targetMembership.recommendedByUserId) {
-    return NextResponse.json({ error: "This candidate is already recommended." }, { status: 400 });
+    return NextResponse.json({ error: "This candidate already has a sponsor." }, { status: 400 });
   }
 
   const updatedMembership = await prisma.membership.update({

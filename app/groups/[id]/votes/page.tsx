@@ -62,9 +62,9 @@ function applicantHeadline(membership: Membership) {
 
 function supportSummary(count: number, threshold: number) {
   const remaining = Math.max(0, threshold - count);
-  if (remaining === 0) return "Threshold reached";
-  if (count === 0) return `Needs ${threshold} votes`;
-  return `${remaining} more ${remaining === 1 ? "vote" : "votes"} needed`;
+  if (remaining === 0) return "Ready for admission";
+  if (count === 0) return `Needs ${threshold} attestations`;
+  return `${remaining} more ${remaining === 1 ? "attestation" : "attestations"} needed`;
 }
 
 function StatPill({ label }: { label: string }) {
@@ -115,12 +115,12 @@ export default function GroupVotesPage({ params }: PageProps) {
       const data = (await response.json()) as Group | { error?: string };
 
       if (!response.ok) {
-        throw new Error(("error" in data && data.error) || "Unable to load member votes");
+        throw new Error(("error" in data && data.error) || "Unable to load member review");
       }
 
       setGroup(data as Group);
     } catch (error) {
-      setFlash(error instanceof Error ? error.message : "Unable to load member votes");
+      setFlash(error instanceof Error ? error.message : "Unable to load member review");
     } finally {
       setLoading(false);
     }
@@ -179,13 +179,13 @@ export default function GroupVotesPage({ params }: PageProps) {
       const data = (await response.json()) as { error?: string; accepted?: boolean };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Unable to support candidate");
+        throw new Error(data.error ?? "Unable to record attestation");
       }
 
-      setFlash(data.accepted ? "Candidate accepted into the room." : "Support recorded.");
+      setFlash(data.accepted ? "Candidate admitted to the room." : "Attestation recorded.");
       await load();
     } catch (error) {
-      setFlash(error instanceof Error ? error.message : "Unable to support candidate");
+      setFlash(error instanceof Error ? error.message : "Unable to record attestation");
     } finally {
       setSubmittingId(null);
     }
@@ -209,13 +209,13 @@ export default function GroupVotesPage({ params }: PageProps) {
       const data = (await response.json()) as { error?: string };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Unable to recommend candidate");
+        throw new Error(data.error ?? "Unable to sponsor candidate");
       }
 
-      setFlash("Candidate recommended and moved into active voting.");
+      setFlash("Candidate sponsored and moved into active review.");
       await load();
     } catch (error) {
-      setFlash(error instanceof Error ? error.message : "Unable to recommend candidate");
+      setFlash(error instanceof Error ? error.message : "Unable to sponsor candidate");
     } finally {
       setRecommendingId(null);
     }
@@ -234,16 +234,16 @@ export default function GroupVotesPage({ params }: PageProps) {
         <section className="rounded-3xl border border-line bg-white p-6 shadow-sm">
           <div className="space-y-3">
             <h1 className="text-3xl font-semibold tracking-tight">
-              Member votes {group ? `· ${group.name}` : ""}
+              Member review {group ? `· ${group.name}` : ""}
             </h1>
             <p className="text-sm text-muted">
-              New members need support from at least 20% of active members to get in.
+              New members move through member review. Admission happens once at least 20% of active members attest that the fit is real.
             </p>
             <div className="flex flex-wrap gap-2">
               <StatPill label={`${activeMembers.length} active members`} />
-              <StatPill label={`${voteThreshold} vote${voteThreshold === 1 ? "" : "s"} needed`} />
-              <StatPill label={`${candidates.length} in active voting`} />
-              <StatPill label={`${queuedCandidates.length} waiting for recommendation`} />
+              <StatPill label={`${voteThreshold} attestation${voteThreshold === 1 ? "" : "s"} needed`} />
+              <StatPill label={`${candidates.length} in active review`} />
+              <StatPill label={`${queuedCandidates.length} waiting for sponsor`} />
             </div>
           </div>
 
@@ -259,7 +259,7 @@ export default function GroupVotesPage({ params }: PageProps) {
 
           {!loading && !isEligibleVoter ? (
             <div className="mt-5 rounded-2xl border border-line bg-panel px-4 py-6 text-sm text-muted">
-              Only active members can recommend applicants or cast support votes.
+              Only active members can sponsor applicants or attest fit.
             </div>
           ) : null}
 
@@ -267,14 +267,14 @@ export default function GroupVotesPage({ params }: PageProps) {
             <div className="mt-6 space-y-8">
               <div className="space-y-4">
                 <div>
-                  <h2 className="text-lg font-semibold">Active voting</h2>
+                  <h2 className="text-lg font-semibold">Active review</h2>
                   <p className="mt-1 text-sm text-muted">
-                    These applicants already have a member recommendation and now need room support to get in.
+                    These applicants already have a member sponsor and now need room attestations before they are admitted.
                   </p>
                 </div>
 
                 {!candidates.length ? (
-                  <p className="text-sm text-muted">No candidates are in active voting right now.</p>
+                  <p className="text-sm text-muted">No candidates are in active review right now.</p>
                 ) : null}
 
                 {candidates.map((membership) => {
@@ -288,10 +288,10 @@ export default function GroupVotesPage({ params }: PageProps) {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-medium text-foreground">{applicantName(membership)}</p>
                             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800">
-                              Recommended
+                              Sponsored
                             </span>
                             <span className="rounded-full border border-line bg-white px-2.5 py-1 text-[11px] text-muted">
-                              Active voting
+                              Active review
                             </span>
                           </div>
                           <p className="text-sm text-muted">{applicantHeadline(membership)}</p>
@@ -300,11 +300,11 @@ export default function GroupVotesPage({ params }: PageProps) {
 
                         <div className="text-right">
                           <p className="text-sm font-medium text-foreground">
-                            {supportCount}/{voteThreshold} votes
+                            {supportCount}/{voteThreshold} attestations
                           </p>
                           <p className="mt-1 text-xs text-muted">{supportSummary(supportCount, voteThreshold)}</p>
                           <p className="mt-1 text-xs text-muted">
-                            Recommended by {membership.recommendedBy?.name || membership.recommendedBy?.email}
+                            Sponsored by {membership.recommendedBy?.name || membership.recommendedBy?.email}
                           </p>
                         </div>
                       </div>
@@ -314,8 +314,8 @@ export default function GroupVotesPage({ params }: PageProps) {
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                         <p className="text-sm text-muted">
                           {supportCount > 0
-                            ? `${supportCount} member${supportCount === 1 ? "" : "s"} already support this application.`
-                            : "No support recorded yet."}
+                            ? `${supportCount} member${supportCount === 1 ? "" : "s"} already attest to this fit.`
+                            : "No attestations recorded yet."}
                         </p>
                         <button
                           type="button"
@@ -324,10 +324,10 @@ export default function GroupVotesPage({ params }: PageProps) {
                           className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {alreadySupported
-                            ? "Supported"
+                            ? "Attested"
                             : submittingId === membership.id
                               ? "Saving..."
-                              : "Vote yes"}
+                              : "Attest fit"}
                         </button>
                       </div>
                     </div>
@@ -337,9 +337,9 @@ export default function GroupVotesPage({ params }: PageProps) {
 
               <div className="space-y-4">
                 <div>
-                  <h2 className="text-lg font-semibold">Needs recommendation</h2>
+                  <h2 className="text-lg font-semibold">Needs sponsor</h2>
                   <p className="mt-1 text-sm text-muted">
-                    These applicants are queued. One active member recommendation moves them into room voting.
+                    These applicants are queued. One active member sponsor moves them into room review.
                   </p>
                 </div>
 
@@ -361,9 +361,9 @@ export default function GroupVotesPage({ params }: PageProps) {
                         <p className="text-xs text-muted">Applied {formatJoinedLabel(membership.createdAt)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-foreground">Needs recommendation</p>
+                        <p className="text-sm font-medium text-foreground">Needs sponsor</p>
                         <p className="mt-1 text-xs text-muted">
-                          Once recommended, the room will see this applicant in active voting.
+                          Once sponsored, the room will see this applicant in active review.
                         </p>
                       </div>
                     </div>
@@ -371,14 +371,14 @@ export default function GroupVotesPage({ params }: PageProps) {
                     <ApplicationPanels membership={membership} />
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm text-muted">Recommendation is the first signal that this person belongs here.</p>
+                      <p className="text-sm text-muted">A sponsor is the first signal that this person belongs in the room.</p>
                       <button
                         type="button"
                         onClick={() => void handleRecommend(membership.id)}
                         disabled={recommendingId === membership.id}
                         className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {recommendingId === membership.id ? "Recommending..." : "Recommend for voting"}
+                        {recommendingId === membership.id ? "Sponsoring..." : "Sponsor for review"}
                       </button>
                     </div>
                   </div>

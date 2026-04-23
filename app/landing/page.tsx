@@ -198,6 +198,10 @@ export default function LandingPage() {
 
         <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">The problem</h2>
+          <p className="mt-3 max-w-4xl text-sm leading-7 text-muted">
+            Trust50 is the country club model for the digital age, except members can replace leadership when the room
+            stops serving them.
+          </p>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {problemBlocks.map((block) => (
               <div key={block.title} className="rounded-2xl border border-line bg-panel p-5">
@@ -226,6 +230,10 @@ export default function LandingPage() {
               <p>
                 You&apos;re never more than 4 hops from the person you need. The people in your rooms sit in other rooms too.
                 Ask in one room, get connected to another.
+              </p>
+              <p>
+                Four rooms means roughly 200 relationships across the network. That is enough reach to be powerful,
+                but still small enough to remember who people are and why they matter.
               </p>
             </div>
           </div>

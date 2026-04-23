@@ -6,7 +6,7 @@ const faqs = [
   {
     question: "What is Trust50?",
     answer:
-      "Trust50 is a network of small, curated groups, max 50 members per room, where founders and operators help each other make better decisions. Members can join up to 4 groups. Curators who run groups keep 80% of revenue. Most groups are free.",
+      "Trust50 is the country club model for the digital age: small, curated rooms of up to 50 members where founders and operators help each other make better decisions. The difference is that members can replace leadership when a curator stops serving the room. Members can join up to 4 groups, curators keep 80% of revenue, and most rooms stay free.",
   },
   {
     question: "How is this different from LinkedIn or Slack groups?",
@@ -26,7 +26,7 @@ const faqs = [
   {
     question: "How many groups can I join?",
     answer:
-      "4 groups maximum. That's roughly 200 direct connections across the network: enough to be useful, not so many that you spread yourself thin. Rooms you curate don't count toward your 4-room limit.",
+      "4 groups maximum. That's roughly 200 direct connections across the network, which is about the limit before useful context starts turning into noise. It is enough reach to be powerful, but still small enough to remember who people are and why they matter. Rooms you curate don't count toward your 4-room limit.",
   },
   {
     question: "How do I join a group?",

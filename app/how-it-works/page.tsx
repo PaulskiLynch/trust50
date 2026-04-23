@@ -70,6 +70,10 @@ export default function HowItWorksPage() {
             You already answer questions, make introductions, and help people make better decisions. Trust50 lets you
             structure that work, monetize it, and keep 80% without turning your trusted room into a crowd.
           </p>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-muted">
+            It is the country club model for the digital age, except members can replace leadership when the room stops
+            serving them.
+          </p>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
@@ -88,6 +92,10 @@ export default function HowItWorksPage() {
             <p className="mt-4 text-sm leading-7 text-muted">
               The people in your 4 rooms sit in other rooms too. Within two or three warm introductions, you can usually
               reach the exact person you need. You&apos;re never more than 4 hops from the perfect connection.
+            </p>
+            <p className="mt-4 text-sm leading-7 text-muted">
+              In practice that means roughly 200 trusted relationships across the network, close to the upper limit of
+              human social bandwidth before context starts turning into noise.
             </p>
           </div>
 

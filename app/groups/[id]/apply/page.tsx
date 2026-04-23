@@ -26,6 +26,10 @@ type Group = {
   memberships: Membership[];
 };
 
+const MIN_FIT_LENGTH = 20;
+const MIN_CONTRIBUTION_LENGTH = 20;
+const MIN_CONTEXT_LENGTH = 12;
+
 type PageProps = {
   params: Promise<{
     id: string;
@@ -84,6 +88,25 @@ export default function ApplyPage({ params }: PageProps) {
   async function handleApply() {
     if (!group) return;
 
+    const trimmedFit = fitWhy.trim();
+    const trimmedContribution = contributionWhy.trim();
+    const trimmedContext = relevantContext.trim();
+
+    if (trimmedFit.length < MIN_FIT_LENGTH) {
+      setFlash(`Your fit statement needs at least ${MIN_FIT_LENGTH} characters so the room can evaluate real relevance.`);
+      return;
+    }
+
+    if (trimmedContribution.length < MIN_CONTRIBUTION_LENGTH) {
+      setFlash(`Your contribution statement needs at least ${MIN_CONTRIBUTION_LENGTH} characters so members can judge what you would add.`);
+      return;
+    }
+
+    if (trimmedContext.length < MIN_CONTEXT_LENGTH) {
+      setFlash(`Add a little more context (${MIN_CONTEXT_LENGTH}+ characters) so the room understands your situation.`);
+      return;
+    }
+
     setSubmitting(true);
     setFlash(null);
 
@@ -94,18 +117,33 @@ export default function ApplyPage({ params }: PageProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          fitWhy,
-          contributionWhy,
-          relevantContext,
+          fitWhy: trimmedFit,
+          contributionWhy: trimmedContribution,
+          relevantContext: trimmedContext,
         }),
       });
 
-      const data = (await response.json()) as { error?: string; status?: string };
+      const data = (await response.json()) as Membership | { error?: string; status?: string };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Unable to apply");
+        throw new Error(("error" in data && data.error) || "Unable to apply");
       }
 
+      const returnedMembership = data as Membership;
+      setGroup((current) =>
+        current
+          ? {
+              ...current,
+              memberships: [
+                ...current.memberships.filter((membership) => membership.userId !== currentUserId),
+                returnedMembership,
+              ],
+            }
+          : current,
+      );
+      setFitWhy("");
+      setContributionWhy("");
+      setRelevantContext("");
       setFlash("Application submitted. You are now in the queue for this room.");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : "Unable to apply");
@@ -143,7 +181,7 @@ export default function ApplyPage({ params }: PageProps) {
             <div className="mt-5 space-y-5">
               <div className="rounded-2xl border border-line bg-panel px-4 py-4 text-sm text-muted">
                 <p>{group.description || "A private room built around thoughtful professional decisions."}</p>
-                <p className="mt-2">Recommendations happen inside the room. Applicants cannot self-claim one.</p>
+                <p className="mt-2">Sponsorship happens inside the room. Applicants cannot self-claim one.</p>
               </div>
 
               {!currentUserId ? (
@@ -187,7 +225,7 @@ export default function ApplyPage({ params }: PageProps) {
                   <p className="font-medium text-foreground">Your application is already in motion.</p>
                   <p className="mt-1">
                     {currentMembership?.status === "pending"
-                      ? "You are in active voting now."
+                      ? "You are in active review now."
                       : "You are in the queue for this room."}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-3">
@@ -202,7 +240,7 @@ export default function ApplyPage({ params }: PageProps) {
                         href={groupId ? `/groups/${groupId}/votes` : "/"}
                         className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
                       >
-                        View member votes
+                        View member review
                       </Link>
                     ) : null}
                   </div>
@@ -211,6 +249,12 @@ export default function ApplyPage({ params }: PageProps) {
 
               {!isActiveMember && !isPendingMember ? (
                 <>
+              <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-4 text-sm text-muted">
+                <p className="font-medium text-foreground">What a strong application looks like</p>
+                <p className="mt-2">
+                  Be concrete about the decisions you face, the peers you relate to, and the judgment you would contribute back.
+                </p>
+              </div>
               <label className="block space-y-2">
                 <span className="text-sm font-medium">Why are you a good fit for this room?</span>
                 <textarea
@@ -219,6 +263,7 @@ export default function ApplyPage({ params }: PageProps) {
                   onChange={(event) => setFitWhy(event.target.value)}
                   placeholder="Share the stage, problems, or perspective that make this room relevant to you."
                 />
+                <p className="text-xs text-muted">{fitWhy.trim().length}/{MIN_FIT_LENGTH}+ characters</p>
               </label>
 
               <label className="block space-y-2">
@@ -229,6 +274,7 @@ export default function ApplyPage({ params }: PageProps) {
                   onChange={(event) => setContributionWhy(event.target.value)}
                   placeholder="What kind of context, experience, or decision support would people here get from you?"
                 />
+                <p className="text-xs text-muted">{contributionWhy.trim().length}/{MIN_CONTRIBUTION_LENGTH}+ characters</p>
               </label>
 
               <label className="block space-y-2">
@@ -239,6 +285,7 @@ export default function ApplyPage({ params }: PageProps) {
                   onChange={(event) => setRelevantContext(event.target.value)}
                   placeholder="Current role, company stage, market, or the kind of decisions you are working through."
                 />
+                <p className="text-xs text-muted">{relevantContext.trim().length}/{MIN_CONTEXT_LENGTH}+ characters</p>
               </label>
 
               <div className="flex flex-wrap gap-3">

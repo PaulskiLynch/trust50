@@ -243,6 +243,11 @@ export default function GroupDetailPage({ params }: PageProps) {
   const [requestKind, setRequestKind] = useState<GroupRequest["kind"]>("request");
   const [isPostingRequest, setIsPostingRequest] = useState(false);
   const [showAllMembers, setShowAllMembers] = useState(false);
+  const [showLeavePanel, setShowLeavePanel] = useState(false);
+  const [leaveOutcome, setLeaveOutcome] = useState<"yes" | "partly" | "not-yet">("yes");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [leaveReplacement, setLeaveReplacement] = useState("");
+  const [isLeavingRoom, setIsLeavingRoom] = useState(false);
   const [discussionSearch, setDiscussionSearch] = useState("");
   const [discussionFilter, setDiscussionFilter] = useState<"all" | "open" | "resolved">("all");
 
@@ -284,6 +289,7 @@ export default function GroupDetailPage({ params }: PageProps) {
   );
   const isOwner = group?.ownerId === currentUserId;
   const isActiveMember = currentMembership?.status === "active" || isOwner;
+  const canLeaveRoom = currentMembership?.status === "active" && !isOwner;
   const hasPendingAccess =
     currentMembership?.status === "pending" ||
     currentMembership?.status === "waitlist" ||
@@ -508,6 +514,42 @@ export default function GroupDetailPage({ params }: PageProps) {
     }
   }
 
+  async function handleLeaveRoom() {
+    if (!group || !canLeaveRoom) return;
+
+    setIsLeavingRoom(true);
+    setFlash(null);
+
+    try {
+      const response = await fetch(`/api/groups/${group.id}/leave`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          gotWhatNeeded: leaveOutcome,
+          leavingReason: leaveReason.trim(),
+          suggestedReplacement: leaveReplacement.trim(),
+        }),
+      });
+
+      const data = (await response.json()) as { error?: string; message?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Unable to leave room");
+      }
+
+      setFlash(data.message ?? "You left the room.");
+      setShowLeavePanel(false);
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      setFlash(error instanceof Error ? error.message : "Unable to leave room");
+    } finally {
+      setIsLeavingRoom(false);
+    }
+  }
+
   function getFeedStatusLabel(request: GroupRequest) {
     if (request.status !== "open") return "Resolved";
     if (request.replies.length > 0) return "Active";
@@ -649,8 +691,17 @@ export default function GroupDetailPage({ params }: PageProps) {
                       href={`/groups/${group.id}/votes`}
                       className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
                     >
-                      Member votes
+                      Member review
                     </Link>
+                  ) : null}
+                  {canLeaveRoom ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowLeavePanel((current) => !current)}
+                      className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                    >
+                      {showLeavePanel ? "Close leave panel" : "Leave room"}
+                    </button>
                   ) : null}
                   <span className="rounded-full bg-stone-100 px-3 py-2 text-xs font-medium text-stone-700">
                     {group.requests.filter((request) => request.status === "open").length} active topics
@@ -658,8 +709,70 @@ export default function GroupDetailPage({ params }: PageProps) {
                 </div>
                 {!isActiveMember ? (
                   <p className="mt-4 text-sm text-muted">
-                    Members can join up to 4 rooms. Apply with context and contribution, then active members can recommend strong applicants into voting.
+                    Members can join up to 4 rooms. Apply with context and contribution, then active members can sponsor strong applicants into review.
                   </p>
+                ) : null}
+                {showLeavePanel && canLeaveRoom ? (
+                  <div className="mt-4 rounded-2xl border border-line bg-panel px-4 py-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">Free this slot intentionally.</p>
+                      <p className="text-sm text-muted">
+                        Leaving opens one of your four room slots. Tell the curator whether the room did what you needed and who might use the place well next.
+                      </p>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <label className="space-y-2 text-sm text-muted">
+                        <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-muted">Did you get what you needed?</span>
+                        <select
+                          value={leaveOutcome}
+                          onChange={(event) => setLeaveOutcome(event.target.value as "yes" | "partly" | "not-yet")}
+                          className="w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                        >
+                          <option value="yes">Yes</option>
+                          <option value="partly">Partly</option>
+                          <option value="not-yet">Not yet</option>
+                        </select>
+                      </label>
+                      <label className="space-y-2 text-sm text-muted md:col-span-2">
+                        <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-muted">Who should take your slot?</span>
+                        <input
+                          value={leaveReplacement}
+                          onChange={(event) => setLeaveReplacement(event.target.value)}
+                          placeholder="A name, company, or profile that would strengthen the room"
+                          className="w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                        />
+                      </label>
+                    </div>
+                    <label className="mt-3 block space-y-2 text-sm text-muted">
+                      <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-muted">Why are you leaving?</span>
+                      <textarea
+                        value={leaveReason}
+                        onChange={(event) => setLeaveReason(event.target.value)}
+                        placeholder="A short note for the curator on whether the room solved the problem, drifted, or is simply no longer the right fit."
+                        className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                      />
+                    </label>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm text-muted">Your slot opens as soon as you confirm.</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowLeavePanel(false)}
+                          className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                        >
+                          Keep room
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleLeaveRoom()}
+                          disabled={isLeavingRoom}
+                          className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isLeavingRoom ? "Leaving..." : "Confirm leave"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ) : null}
               </div>
 
@@ -952,10 +1065,10 @@ export default function GroupDetailPage({ params }: PageProps) {
               <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
                 <h2 className="text-xl font-semibold">Waiting list · {waitingListMembers.length}</h2>
                 <p className="mt-1 text-sm text-muted">
-                  Access opens selectively. New members need support from at least 20% of active members before they get in.
+                  Access opens selectively. New members move through member review, not first-come queueing.
                 </p>
                 <p className="mt-2 text-sm text-muted">
-                  Right now that means {waitlistVoteThreshold} {waitlistVoteThreshold === 1 ? "member vote" : "member votes"}. Queued candidates need to be recommended into active voting first.
+                  Right now that means {waitlistVoteThreshold} {waitlistVoteThreshold === 1 ? "member attestation" : "member attestations"}. Queued candidates need to be sponsored into active review first.
                 </p>
                 {isActiveMember && votableCandidates.length ? (
                   <Link
@@ -992,8 +1105,8 @@ export default function GroupDetailPage({ params }: PageProps) {
                         <div className="shrink-0 text-right">
                           <p className="text-xs font-medium text-foreground">
                             {membership.status === "pending"
-                              ? `${membership.votes?.length ?? 0}/${waitlistVoteThreshold} votes · Active voting`
-                              : "Queued · Needs recommendation"}
+                              ? `${membership.votes?.length ?? 0}/${waitlistVoteThreshold} attestations · Active review`
+                              : "Queued · Needs sponsor"}
                           </p>
                           <p className="mt-1 text-xs text-muted">{formatJoinedLabel(membership.createdAt)}</p>
                         </div>

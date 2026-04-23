@@ -36,7 +36,7 @@ export async function POST(req: Request, context: RouteContext) {
   );
 
   if (!voterMembership && group.ownerId !== session.user.id) {
-    return NextResponse.json({ error: "Only active members can support new applicants." }, { status: 403 });
+    return NextResponse.json({ error: "Only active members can attest fit for new applicants." }, { status: 403 });
   }
 
   let payload: z.infer<typeof voteSchema>;
@@ -45,10 +45,10 @@ export async function POST(req: Request, context: RouteContext) {
     payload = voteSchema.parse(await req.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid vote" }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid attestation" }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Invalid vote" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid attestation" }, { status: 400 });
   }
 
   const targetMembership = await prisma.membership.findFirst({
@@ -69,7 +69,7 @@ export async function POST(req: Request, context: RouteContext) {
   }
 
   if (targetMembership.userId === session.user.id) {
-    return NextResponse.json({ error: "You cannot vote on your own application." }, { status: 400 });
+    return NextResponse.json({ error: "You cannot attest to your own application." }, { status: 400 });
   }
 
   const existingVote = await prisma.membershipVote.findUnique({
@@ -82,7 +82,7 @@ export async function POST(req: Request, context: RouteContext) {
   });
 
   if (existingVote) {
-    return NextResponse.json({ error: "You already supported this applicant." }, { status: 400 });
+    return NextResponse.json({ error: "You already attested to this applicant." }, { status: 400 });
   }
 
   const result = await prisma.$transaction(async (tx) => {

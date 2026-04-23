@@ -80,16 +80,26 @@ type Group = {
   requests: Request[];
 };
 
-type ActivityRow = {
+type TriageRow = {
   id: string;
   groupId: string;
   groupName: string;
+  discussionId: string;
   discussionTitle: string;
-  replyCount: number;
-  lastActivityLabel: string;
   startedBy: string;
+  lastActivityLabel: string;
   latestPreview: string;
+  actionLabel: string;
+  urgency: "urgent" | "decision" | "steady";
   timestamp: number;
+};
+
+type HotPerson = {
+  id: string;
+  name: string;
+  headline: string;
+  rooms: Set<string>;
+  activityCount: number;
 };
 
 function formatRelativeTime(value: string | number) {
@@ -103,6 +113,10 @@ function formatRelativeTime(value: string | number) {
 
   const days = Math.max(1, Math.round(diff / day));
   return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
 }
 
 function discussionTitle(request: Request) {
@@ -158,7 +172,6 @@ export default function Home() {
   const [isCredentialSigningIn, setIsCredentialSigningIn] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
-  const [selectedGroupId, setSelectedGroupId] = useState("all");
 
   const currentUserId = session?.user?.id ?? null;
 
@@ -216,51 +229,114 @@ export default function Home() {
     });
   }, [currentUserId, memberGroups]);
 
-  const filteredMemberGroups = useMemo(() => {
-    if (selectedGroupId === "all") return prioritizedGroups;
-    return prioritizedGroups.filter((group) => group.id === selectedGroupId);
-  }, [prioritizedGroups, selectedGroupId]);
+  const cockpitGroups = useMemo(() => prioritizedGroups.slice(0, 4), [prioritizedGroups]);
 
-  const ownedGroups = useMemo(() => {
-    return prioritizedGroups.filter((group) => getCurrentMembership(group, currentUserId)?.role === "owner");
+  const totalWaiting = useMemo(
+    () =>
+      prioritizedGroups.reduce(
+        (total, group) =>
+          total +
+          group.memberships.filter((membership) =>
+            membership.status === "waitlist" ||
+            membership.status === "pending" ||
+            membership.status === "invited",
+          ).length,
+        0,
+      ),
+    [prioritizedGroups],
+  );
+
+  const totalInReview = useMemo(
+    () =>
+      prioritizedGroups.reduce(
+        (total, group) => total + group.memberships.filter((membership) => membership.status === "pending").length,
+        0,
+      ),
+    [prioritizedGroups],
+  );
+
+  const networkReach = useMemo(() => {
+    if (!currentUserId) {
+      return {
+        directPeers: 0,
+        estimatedExtendedReach: 0,
+      };
+    }
+
+    const directPeerIds = new Set<string>();
+
+    memberGroups.forEach((group) => {
+      group.memberships.forEach((membership) => {
+        if (membership.status === "active" && membership.userId !== currentUserId) {
+          directPeerIds.add(membership.userId);
+        }
+      });
+    });
+
+    return {
+      directPeers: directPeerIds.size,
+      estimatedExtendedReach: directPeerIds.size * 147,
+    };
+  }, [currentUserId, memberGroups]);
+
+  const triageRows = useMemo<TriageRow[]>(() => {
+    if (!currentUserId) return [];
+
+    const rows = prioritizedGroups.flatMap((group) =>
+      group.requests
+        .filter((request) => request.status === "open")
+        .map((request) => {
+          const userAlreadyReplied = request.replies.some((reply) => reply.senderId === currentUserId);
+          if (request.creatorId === currentUserId || userAlreadyReplied) return null;
+
+          const lastActivity = Math.max(
+            +new Date(request.createdAt),
+            ...request.replies.map((reply) => +new Date(reply.createdAt)),
+          );
+          const ageHours = (Date.now() - lastActivity) / (60 * 60 * 1000);
+          const latestReply = request.replies.at(-1);
+
+          return {
+            id: `triage-${group.id}-${request.id}`,
+            groupId: group.id,
+            groupName: group.name,
+            discussionId: request.id,
+            discussionTitle: discussionTitle(request),
+            startedBy: request.creator?.name || request.creator?.email || "Unknown member",
+            lastActivityLabel: request.replies.length ? "needs your judgment" : "needs first reply",
+            latestPreview: shortenText(latestReply?.body || request.content, 120),
+            actionLabel: request.replies.length ? "Challenge or connect" : "Add first useful reply",
+            urgency: ageHours <= 24 ? "urgent" : request.replies.length ? "decision" : "steady",
+            timestamp: lastActivity,
+          } satisfies TriageRow;
+        })
+        .filter((item): item is TriageRow => item !== null),
+    );
+
+    prioritizedGroups.forEach((group) => {
+      const pendingCount = group.memberships.filter((membership) => membership.status === "pending").length;
+      if (!pendingCount) return;
+
+      rows.push({
+        id: `review-${group.id}`,
+        groupId: group.id,
+        groupName: group.name,
+        discussionId: "",
+        discussionTitle: `${pendingCount} candidate${pendingCount === 1 ? "" : "s"} need member review`,
+        startedBy: "Room governance",
+        lastActivityLabel: "awaiting attestation",
+        latestPreview: "Attest fit only when you would be comfortable sharing the room with this person.",
+        actionLabel: "Review candidates",
+        urgency: "decision",
+        timestamp: Date.now(),
+      });
+    });
+
+    return rows.sort((left, right) => right.timestamp - left.timestamp).slice(0, 6);
   }, [currentUserId, prioritizedGroups]);
-
-  const joinedGroups = useMemo(() => {
-    return prioritizedGroups.filter((group) => getCurrentMembership(group, currentUserId)?.role !== "owner");
-  }, [currentUserId, prioritizedGroups]);
-
-  const recentActivity = useMemo<ActivityRow[]>(() => {
-    return filteredMemberGroups
-      .flatMap((group) =>
-        group.requests
-          .map((request) => {
-            const replyCount = request.replies.length;
-            if (replyCount === 0) return null;
-
-            const latestReplyTimestamp = Math.max(
-              ...request.replies.map((reply) => +new Date(reply.createdAt)),
-            );
-
-            return {
-              id: `activity-${group.id}-${request.id}`,
-              groupId: group.id,
-              groupName: group.name,
-              discussionTitle: discussionTitle(request),
-              replyCount,
-              lastActivityLabel: replyCount === 1 ? "1 new reply" : `${replyCount} new replies`,
-              startedBy: request.creator?.name || request.creator?.email || "Unknown member",
-              latestPreview: shortenText(request.replies.at(-1)?.body || request.content, 100),
-              timestamp: latestReplyTimestamp,
-            };
-          })
-          .filter((item): item is ActivityRow => item !== null),
-      )
-      .sort((left, right) => right.timestamp - left.timestamp)
-      .slice(0, 5);
-  }, [filteredMemberGroups]);
 
   const recentOutcomes = useMemo(() => {
-    return filteredMemberGroups
+    return prioritizedGroups
       .flatMap((group) =>
         group.requests
           .filter((request) => request.status !== "open" && request.outcome)
@@ -274,8 +350,53 @@ export default function Home() {
           })),
       )
       .sort((left, right) => right.timestamp - left.timestamp)
-      .slice(0, 2);
-  }, [filteredMemberGroups]);
+      .slice(0, 4);
+  }, [prioritizedGroups]);
+
+  const hotPeople = useMemo(() => {
+    const people = new Map<string, HotPerson>();
+
+    prioritizedGroups.forEach((group) => {
+      group.memberships.forEach((membership) => {
+        if (membership.status !== "active" || membership.userId === currentUserId) return;
+
+        const existing = people.get(membership.userId);
+        const person =
+          existing ??
+          {
+            id: membership.userId,
+            name: membership.user?.name || membership.user?.email || "Unknown member",
+            headline: membership.user?.headline || "Active member",
+            rooms: new Set<string>(),
+            activityCount: 0,
+          };
+
+        person.rooms.add(group.name);
+        people.set(membership.userId, person);
+      });
+
+      group.requests.forEach((request) => {
+        const creator = people.get(request.creatorId);
+        if (creator) creator.activityCount += 1;
+
+        request.replies.forEach((reply) => {
+          const sender = people.get(reply.senderId);
+          if (sender) sender.activityCount += 1;
+        });
+      });
+    });
+
+    return [...people.values()]
+      .sort((left, right) => right.activityCount - left.activityCount || right.rooms.size - left.rooms.size)
+      .slice(0, 5);
+  }, [currentUserId, prioritizedGroups]);
+
+  const pathfinderHint = useMemo(() => {
+    const person = hotPeople.find((item) => item.rooms.size > 0) ?? hotPeople[0];
+    if (!person) return "Join rooms to build trusted paths across the network.";
+
+    return `You -> ${person.name} -> ${person.rooms.values().next().value || "another room"} signal.`;
+  }, [hotPeople]);
 
   const currentUser = useMemo(() => {
     if (!currentProfile) return null;
@@ -297,27 +418,53 @@ export default function Home() {
   function renderGroupCard(group: Group, emphasize = false) {
     const needingInput = currentUserId ? getDiscussionsNeedingInput(group, currentUserId) : 0;
     const hasAction = needingInput > 0;
+    const pendingCount = group.memberships.filter((membership) => membership.status === "pending").length;
+    const waitingCount = group.memberships.filter((membership) => membership.status === "waitlist").length;
+    const activeCount = group.memberships.filter((membership) => membership.status === "active").length;
+    const openTopics = group.requests.filter((request) => request.status === "open").length;
+    const latest = formatRelativeTime(getLatestActivityTimestamp(group));
+    const statusLabel = hasAction ? `${needingInput} input needed` : pendingCount ? `${pendingCount} in review` : "Quiet";
 
     return (
       <Link
         key={group.id}
         href={`/groups/${group.id}`}
-        className={`flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 transition hover:-translate-y-0.5 hover:shadow-sm ${
+        className={`block rounded-3xl border px-5 py-5 transition hover:-translate-y-0.5 hover:shadow-sm ${
           emphasize ? "border-foreground/20 bg-panel shadow-sm" : "border-line bg-panel"
         }`}
       >
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+              {getCurrentMembership(group, currentUserId)?.role === "owner" ? "Room you run" : "Room slot"}
+            </p>
+            <p className="mt-2 truncate text-lg font-semibold text-foreground">{group.name}</p>
+          </div>
           <span
-            aria-hidden="true"
-            className={`h-3 w-3 shrink-0 rounded-full ${
-              hasAction ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.45)]" : "bg-foreground"
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              hasAction ? "bg-rose-100 text-rose-800" : pendingCount ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-700"
             }`}
-          />
-          <p className="truncate font-medium text-foreground">{group.name}</p>
+          >
+            {statusLabel}
+          </span>
         </div>
-        <div className="shrink-0 text-sm text-muted">
-          {hasAction ? `${needingInput} need input` : "Quiet"}
+        <div className="mt-5 grid grid-cols-3 gap-2 text-sm">
+          <div className="rounded-2xl border border-line bg-white px-3 py-3">
+            <p className="text-xs text-muted">Members</p>
+            <p className="mt-1 font-medium text-foreground">{activeCount}/50</p>
+          </div>
+          <div className="rounded-2xl border border-line bg-white px-3 py-3">
+            <p className="text-xs text-muted">Topics</p>
+            <p className="mt-1 font-medium text-foreground">{openTopics}</p>
+          </div>
+          <div className="rounded-2xl border border-line bg-white px-3 py-3">
+            <p className="text-xs text-muted">Waiting</p>
+            <p className="mt-1 font-medium text-foreground">{waitingCount}</p>
+          </div>
         </div>
+        <p className="mt-4 text-sm text-muted">
+          {hasAction ? "Open the room and answer the threads where your context matters." : `Last movement ${latest}.`}
+        </p>
       </Link>
     );
   }
@@ -467,18 +614,42 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background px-6 py-10 text-foreground">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.35fr_0.75fr]">
         <div className="space-y-6">
           <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight">Your network home</h1>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Trust50 cockpit</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight">Your network home</h1>
                 <p className="mt-1 text-sm text-muted">
-                  A quiet view of the groups, discussions, and outcomes that matter right now.
+                  Four rooms. One control centre for the decisions, reviews, and outcomes that matter right now.
                 </p>
                 <p className="mt-2 text-sm text-muted">
                   Members can join up to 4 groups, enough to know the room and still move across Trust50 with context.
                 </p>
+                {currentUserId ? (
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Room slots</p>
+                      <p className="mt-2 text-2xl font-semibold">{cockpitGroups.length}/4</p>
+                    </div>
+                    <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Direct peers</p>
+                      <p className="mt-2 text-2xl font-semibold">{formatCompactNumber(networkReach.directPeers)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Extended reach</p>
+                      <p className="mt-2 text-2xl font-semibold">~{formatCompactNumber(networkReach.estimatedExtendedReach)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Waiting rooms</p>
+                      <p className="mt-2 text-2xl font-semibold">{totalWaiting}</p>
+                    </div>
+                    <p className="text-sm text-muted sm:col-span-2 lg:col-span-4">
+                      Pathfinder: {pathfinderHint}
+                    </p>
+                  </div>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link
@@ -513,9 +684,15 @@ export default function Home() {
           <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold">Your groups</h2>
-                <p className="mt-1 text-sm text-muted">A quick read on where you need to step in.</p>
+                <h2 className="text-xl font-semibold">4-room matrix</h2>
+                <p className="mt-1 text-sm text-muted">Each card is one of the rooms competing for your limited attention.</p>
               </div>
+              <Link
+                href="/explore-groups"
+                className="rounded-full border border-line bg-panel px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+              >
+                Explore rooms
+              </Link>
             </div>
 
             <div className="mt-5 space-y-5">
@@ -540,27 +717,24 @@ export default function Home() {
                 </div>
               ) : null}
 
-              {ownedGroups.length ? (
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted">Rooms you run</h3>
-                    <p className="mt-1 text-sm text-muted">The rooms where you set the tone and keep the quality high.</p>
-                  </div>
-                  <div className="space-y-3">
-                    {ownedGroups.map((group) => renderGroupCard(group, true))}
-                  </div>
-                </div>
-              ) : null}
-
-              {joinedGroups.length ? (
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted">Rooms you joined</h3>
-                    <p className="mt-1 text-sm text-muted">The rooms you spend one of your four slots on.</p>
-                  </div>
-                  <div className="space-y-3">
-                    {joinedGroups.map((group) => renderGroupCard(group))}
-                  </div>
+              {cockpitGroups.length ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {cockpitGroups.map((group) =>
+                    renderGroupCard(group, getCurrentMembership(group, currentUserId)?.role === "owner"),
+                  )}
+                  {Array.from({ length: Math.max(0, 4 - cockpitGroups.length) }).map((_, index) => (
+                    <Link
+                      key={`empty-slot-${index}`}
+                      href="/explore-groups"
+                      className="block rounded-3xl border border-dashed border-line bg-panel px-5 py-5 transition hover:border-foreground"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Open slot</p>
+                      <p className="mt-2 text-lg font-semibold text-foreground">Dock a trusted room</p>
+                      <p className="mt-4 text-sm text-muted">
+                        Spend this slot only when the room is worth your context and contribution.
+                      </p>
+                    </Link>
+                  ))}
                 </div>
               ) : null}
             </div>
@@ -569,36 +743,24 @@ export default function Home() {
           <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold">Recent activity</h2>
+                <h2 className="text-xl font-semibold">Input required</h2>
                 <p className="mt-1 text-sm text-muted">
-                  A structured view of where replies are moving discussions forward.
+                  Places where your reply, challenge, attestation, or intro can move something forward.
                 </p>
               </div>
 
-              <label className="space-y-2 text-sm text-muted">
-                <span className="block">Group</span>
-                <select
-                  value={selectedGroupId}
-                  onChange={(event) => setSelectedGroupId(event.target.value)}
-                  className="rounded-full border border-line bg-white px-4 py-2 text-sm text-foreground outline-none transition hover:border-foreground"
-                >
-                  <option value="all">All groups</option>
-                  {prioritizedGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <span className="rounded-full bg-panel px-4 py-2 text-sm text-muted">
+                {triageRows.length} active signal{triageRows.length === 1 ? "" : "s"}
+              </span>
             </div>
 
             <div className="mt-5 space-y-3">
-              {!recentActivity.length ? <p className="text-sm text-muted">No recent activity yet.</p> : null}
+              {!triageRows.length ? <p className="text-sm text-muted">No input required right now. Your rooms are quiet.</p> : null}
 
-              {recentActivity.map((item) => (
+              {triageRows.map((item) => (
                 <Link
                   key={item.id}
-                  href={`/groups/${item.groupId}`}
+                  href={item.discussionId ? `/groups/${item.groupId}/discussions/${item.discussionId}` : `/groups/${item.groupId}/votes`}
                   className="block rounded-2xl border border-line bg-panel px-4 py-4 transition hover:-translate-y-0.5 hover:shadow-sm"
                 >
                   <p className="text-sm font-medium text-foreground">&rarr; &ldquo;{item.discussionTitle}&rdquo;</p>
@@ -615,8 +777,8 @@ export default function Home() {
 
           {recentOutcomes.length ? (
             <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold">Recent outcomes</h2>
-              <p className="mt-1 text-sm text-muted">A compact view of what recently reached a decision.</p>
+              <h2 className="text-xl font-semibold">Outcome ledger</h2>
+              <p className="mt-1 text-sm text-muted">Proof that the rooms are creating movement, not just messages.</p>
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {recentOutcomes.map((item) => (
@@ -637,7 +799,49 @@ export default function Home() {
           ) : null}
         </div>
 
-        <aside className="space-y-6">{currentUser ? <ProfileCard user={currentUser} /> : null}</aside>
+        <aside className="space-y-6">
+          <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold">Signal map</h2>
+            <p className="mt-1 text-sm text-muted">The people heating up across your four-room surface area.</p>
+
+            <div className="mt-5 space-y-3">
+              {!hotPeople.length ? <p className="text-sm text-muted">Join rooms to see active people here.</p> : null}
+
+              {hotPeople.map((person) => (
+                <Link
+                  key={person.id}
+                  href={`/members/${person.id}`}
+                  className="block rounded-2xl border border-line bg-panel px-4 py-4 transition hover:border-foreground"
+                >
+                  <p className="font-medium text-foreground">{person.name}</p>
+                  <p className="mt-1 text-sm text-muted">{person.headline}</p>
+                  <p className="mt-2 text-xs text-muted">
+                    {person.activityCount} signal{person.activityCount === 1 ? "" : "s"} across {person.rooms.size} room{person.rooms.size === 1 ? "" : "s"}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold">Pathfinder</h2>
+            <p className="mt-1 text-sm text-muted">Trust50 is a route map, not a feed.</p>
+            <div className="mt-5 rounded-2xl border border-line bg-panel px-4 py-4">
+              <p className="text-sm font-medium text-foreground">{pathfinderHint}</p>
+              <p className="mt-2 text-sm text-muted">
+                Ask in the room where trust is strongest first. The second hop is usually warmer than a cold search.
+              </p>
+            </div>
+            <div className="mt-4 rounded-2xl border border-line bg-panel px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Member review</p>
+              <p className="mt-2 text-sm text-foreground">
+                {totalInReview} candidate{totalInReview === 1 ? "" : "s"} waiting for attestations.
+              </p>
+            </div>
+          </section>
+
+          {currentUser ? <ProfileCard user={currentUser} /> : null}
+        </aside>
       </div>
     </main>
   );

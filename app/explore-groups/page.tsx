@@ -154,7 +154,7 @@ export default function ExploreGroupsPage() {
             } else if (membership?.status === "active") {
               action = { href: `/groups/${group.id}`, label: "View room" };
             } else if (membership?.status === "pending") {
-              action = { href: `/groups/${group.id}/votes`, label: "View member votes", secondary: true };
+              action = { href: `/groups/${group.id}/votes`, label: "View member review", secondary: true };
             } else if (membership?.status === "waitlist") {
               action = { href: `/groups/${group.id}/apply`, label: "View application", secondary: true };
             } else {
@@ -227,7 +227,7 @@ export default function ExploreGroupsPage() {
                       <p className="text-sm text-muted">You are already in the queue for this room.</p>
                     ) : null}
                     {membership?.status === "pending" ? (
-                      <p className="text-sm text-muted">Your application is in active voting now.</p>
+                      <p className="text-sm text-muted">Your application is in active review now.</p>
                     ) : null}
                   </div>
                 </div>
