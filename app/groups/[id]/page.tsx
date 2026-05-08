@@ -95,6 +95,7 @@ type Group = {
   valueProp: string;
   ownerId: string;
   status: GroupStatus;
+  price?: number | null;
   memberCount: number;
   publishedAt: string | null;
   memberships: Membership[];
@@ -119,6 +120,22 @@ const statusClasses: Record<GroupStatus, string> = {
   emerging: "bg-amber-100 text-amber-800",
   active: "bg-emerald-100 text-emerald-800",
 };
+
+const roomPatrons: Record<string, { name: string; since: string }[]> = {
+  "group-operators": [
+    { name: "Alex Morgan", since: "Sept" },
+    { name: "Sara Holt", since: "Oct" },
+    { name: "Charlotte Reed", since: "Nov" },
+  ],
+  "group-property-management": [
+    { name: "Olivia Grant", since: "Sept" },
+    { name: "Sam Patel", since: "Oct" },
+  ],
+};
+
+function getRoomPriceLabel(group: Group) {
+  return group.price && group.price > 0 ? `EUR ${group.price}/mo` : "Free room";
+}
 
 function formatRelativeMoment(value: string) {
   const diff = Date.now() - new Date(value).getTime();
@@ -315,6 +332,9 @@ export default function GroupDetailPage({ params }: PageProps) {
     () => waitingListMembers.filter((membership) => membership.status === "pending"),
     [waitingListMembers],
   );
+  const patrons = useMemo(() => (group ? roomPatrons[group.id] ?? [] : []), [group]);
+  const isFreeRoom = !group?.price || group.price <= 0;
+  const scholarshipSeats = group?.price && group.price > 0 ? 3 : 0;
 
   const acceptedConversationByUserId = useMemo(() => {
     const entries = new Map<string, string>();
@@ -622,6 +642,12 @@ export default function GroupDetailPage({ params }: PageProps) {
               ) : null}
             </div>
             <p className="max-w-3xl text-base text-muted">{group?.description || "No description added yet."}</p>
+            {group ? (
+              <p className="text-sm font-medium text-foreground">
+                {getRoomPriceLabel(group)} · {activeMembers.length}/50 members
+                {scholarshipSeats ? ` · ${scholarshipSeats} scholarship seats` : ""}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -964,6 +990,82 @@ export default function GroupDetailPage({ params }: PageProps) {
               </div>
             </section>
             <aside className="space-y-6">
+              {isFreeRoom ? (
+                <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
+                  <h2 className="text-xl font-semibold">Patrons</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    This room costs EUR 0/mo thanks to member patrons. Patrons get recognition, not special access.
+                  </p>
+
+                  <div className="mt-5 space-y-3">
+                    {patrons.length ? (
+                      patrons.map((patron) => (
+                        <div key={patron.name} className="rounded-2xl border border-line bg-white px-4 py-3">
+                          <p className="font-medium text-foreground">{patron.name}</p>
+                          <p className="mt-1 text-sm text-muted">Patron since {patron.since}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-line bg-white px-4 py-4 text-sm text-muted">
+                        Be the first patron to keep this room open.
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setFlash("Patron checkout is coming next. Your interest is noted.")}
+                    className="mt-5 w-full rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    Become a patron - EUR 10/mo
+                  </button>
+                  <p className="mt-3 text-xs text-muted">
+                    Curators receive 80% of patron contributions so free rooms can stay alive.
+                  </p>
+                </section>
+              ) : (
+                <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
+                  <h2 className="text-xl font-semibold">Scholarship Seats</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    This paid room includes {scholarshipSeats} EUR 0 seats for qualified members who have earned the table but need support.
+                  </p>
+                  <div className="mt-4 rounded-2xl border border-line bg-white px-4 py-4">
+                    <p className="text-sm font-medium text-foreground">Requirements</p>
+                    <div className="mt-2 space-y-1 text-sm text-muted">
+                      <p>Qualify normally through tenure, replies, and vouches.</p>
+                      <p>Apply privately. Other members do not see scholarship status.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFlash("Scholarship application flow is coming next.")}
+                    className="mt-5 w-full rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                  >
+                    Apply privately
+                  </button>
+                </section>
+              )}
+
+              {!isFreeRoom ? (
+                <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
+                  <h2 className="text-xl font-semibold">Open House</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    Once per quarter, members of free rooms can hear one real problem brief and a live discussion without seeing identities or past threads.
+                  </p>
+                  <div className="mt-4 rounded-2xl border border-line bg-white px-4 py-4">
+                    <p className="text-sm font-medium text-foreground">Dec 5, 12pm EST · 90 minutes</p>
+                    <p className="mt-2 text-sm text-muted">48 spots available for members of free rooms.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFlash(`Registered interest for ${group.name} Open House.`)}
+                    className="mt-5 w-full rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    Register free
+                  </button>
+                </section>
+              ) : null}
+
               <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
                 <h2 className="text-xl font-semibold">At The Table · {activeMembers.length} of 50 seats</h2>
                 <p className="mt-1 text-sm text-muted">Members leaning in with operating context, not generic takes.</p>

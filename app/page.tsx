@@ -55,6 +55,7 @@ type Request = {
   status: string;
   createdAt: string;
   outcome?: string | null;
+  helpfulSource?: string | null;
   resolvedAt?: string | null;
   creatorId: string;
   creator?: User | null;
@@ -74,6 +75,8 @@ type Group = {
   id: string;
   name: string;
   status: string;
+  price?: number | null;
+  memberCount?: number;
   memberships: Membership[];
   requests: Request[];
 };
@@ -107,6 +110,40 @@ type HotPerson = {
   rooms: Set<string>;
   activityCount: number;
 };
+
+type Patron = {
+  name: string;
+  since: string;
+};
+
+const roomPatrons: Record<string, Patron[]> = {
+  "group-operators": [
+    { name: "Alex Morgan", since: "Sept" },
+    { name: "Sara Holt", since: "Oct" },
+    { name: "Charlotte Reed", since: "Nov" },
+  ],
+  "group-property-management": [
+    { name: "Olivia Grant", since: "Sept" },
+    { name: "Sam Patel", since: "Oct" },
+  ],
+};
+
+const openHouseFallbacks = [
+  {
+    room: "Series B+ EU",
+    date: "Dec 5",
+    time: "12pm EST",
+    spots: 45,
+    brief: "1 real problem brief, identity-safe discussion, no past threads.",
+  },
+  {
+    room: "AI Builders Premium",
+    date: "Dec 7",
+    time: "4pm CET",
+    spots: 12,
+    brief: "Live operator problem, moderated by the room chair.",
+  },
+];
 
 function formatRelativeTime(value: string | number) {
   const timestamp = typeof value === "number" ? value : +new Date(value);
@@ -179,6 +216,36 @@ function groupStatusCopy(group: Group, currentUserId: string) {
   }
 
   return "quiet";
+}
+
+function getRoomPriceLabel(group: Group) {
+  return group.price && group.price > 0 ? `EUR ${group.price}/mo` : "free";
+}
+
+function getRoomReputation(group: Group, currentUserId: string) {
+  const repliesByUser = group.requests.reduce(
+    (total, request) => total + request.replies.filter((reply) => reply.senderId === currentUserId).length,
+    0,
+  );
+  const helpfulOutcomes = group.requests.filter(
+    (request) => request.status !== "open" && request.helpfulSource?.toLowerCase().includes("you"),
+  ).length;
+
+  if (repliesByUser + helpfulOutcomes >= 4) return "Strong";
+  if (repliesByUser >= 1) return "Building";
+  return "New";
+}
+
+function getScholarshipCopy(group: Group, currentUserId: string) {
+  if (!group.price || group.price <= 0) return null;
+  if (group.id === "group-founders" && currentUserId === "temp-user") return "You're a scholarship member";
+  return "3 scholarship seats";
+}
+
+function getPatronCopy(group: Group) {
+  if (group.price && group.price > 0) return null;
+  const patrons = roomPatrons[group.id] ?? [];
+  return patrons.length ? `Funded by ${patrons.length} patrons` : "Open for first patron";
 }
 
 function NavIcon({ path }: { path: string }) {
@@ -264,6 +331,19 @@ export default function Home() {
         0,
       ),
     [prioritizedGroups],
+  );
+
+  const activeMemberSlotsUsed = useMemo(
+    () =>
+      prioritizedGroups.filter((group) =>
+        group.memberships.some(
+          (membership) =>
+            membership.userId === currentUserId &&
+            membership.status === "active" &&
+            membership.role !== "owner",
+        ),
+      ).length,
+    [currentUserId, prioritizedGroups],
   );
 
   const reviewRows = useMemo<ReviewRow[]>(
@@ -404,6 +484,35 @@ export default function Home() {
 
     return `You -> ${person.name} -> ${person.rooms.values().next().value || "another room"}`;
   }, [hotPeople]);
+
+  const aspirationItems = useMemo(() => {
+    const paidTarget = groups.find((group) => group.price && group.price > 0 && group.id === "group-investments") ??
+      groups.find((group) => group.price && group.price > 0);
+    const follower = hotPeople[0]?.name || "three members";
+    const items = [
+      paidTarget
+        ? `You're 1 vouch away from ${paidTarget.name}`
+        : "You're 1 vouch away from a paid decision room",
+      "You've been invited to curate a free room",
+      `${follower} and 2 others have followed you as a patron`,
+    ];
+
+    return items;
+  }, [groups, hotPeople]);
+
+  const openHouses = useMemo(() => {
+    const paidRooms = groups.filter((group) => group.price && group.price > 0).slice(0, 2);
+
+    if (!paidRooms.length) return openHouseFallbacks;
+
+    return paidRooms.map((group, index) => ({
+      room: group.name,
+      date: index === 0 ? "Dec 5" : "Dec 7",
+      time: index === 0 ? "12pm EST" : "4pm CET",
+      spots: index === 0 ? 48 : 12,
+      brief: "1 real problem brief, identity-safe discussion, no past threads.",
+    }));
+  }, [groups]);
 
   const currentUser = useMemo(() => {
     if (!currentProfile) return null;
@@ -612,6 +721,13 @@ export default function Home() {
                 <NavIcon path="M6 5.5h12M6 12h12M6 18.5h8" />
                 <span>The Ledger</span>
               </a>
+              <a
+                href="#aspirations"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground"
+              >
+                <NavIcon path="M12 19V5m0 0 5 5m-5-5-5 5" />
+                <span>Aspirations</span>
+              </a>
             </div>
 
             {currentUser ? (
@@ -631,12 +747,12 @@ export default function Home() {
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-2xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Trust50 · The Floor</p>
-                <h1 className="mt-2 text-4xl font-semibold tracking-tight">Your four rooms. One view.</h1>
+                <h1 className="mt-2 text-4xl font-semibold tracking-tight">Your rooms. Your next table.</h1>
                 <p className="mt-2 text-sm leading-7 text-muted">
-                  A private surface for live judgment, warm paths, and the people who can move a decision two steps away.
+                  Free rooms build reputation. Paid rooms are earned. Patrons keep the open tables alive.
                 </p>
                 <p className="mt-2 text-sm leading-7 text-muted">
-                  Live signal, warm paths, and proof that access is turning into outcomes.
+                  You are in {activeMemberSlotsUsed}/4 member rooms. The platform shows where your work can take you next.
                 </p>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -657,7 +773,16 @@ export default function Home() {
                             {heat}
                           </span>
                         </div>
-                        <p className="mt-2 text-sm text-muted">{groupStatusCopy(group, currentUserId!)}</p>
+                        <p className="mt-2 text-sm text-muted">
+                          {getRoomPriceLabel(group)} · {group.memberships.filter((membership) => membership.status === "active").length}/50 · Reputation: {getRoomReputation(group, currentUserId!)}
+                        </p>
+                        {getScholarshipCopy(group, currentUserId!) ? (
+                          <p className="mt-1 text-xs font-medium text-emerald-700">{getScholarshipCopy(group, currentUserId!)}</p>
+                        ) : getPatronCopy(group) ? (
+                          <p className="mt-1 text-xs font-medium text-emerald-700">{getPatronCopy(group)}</p>
+                        ) : (
+                          <p className="mt-1 text-xs text-muted">{groupStatusCopy(group, currentUserId!)}</p>
+                        )}
                       </Link>
                     );
                   })}
@@ -805,6 +930,40 @@ export default function Home() {
             </section>
           ) : null}
 
+          <section id="aspirations" className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Aspirations</h2>
+                <p className="mt-1 text-sm text-muted">
+                  Earned paths forward. No upgrade buttons, just reputation turning into invitations.
+                </p>
+              </div>
+              <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-800">
+                {currentUser?.trustLevel || "Building"}
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {aspirationItems.map((item) => (
+                <div key={item} className="rounded-2xl border border-line bg-panel px-4 py-4">
+                  <p className="text-sm font-medium text-foreground">{item}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-4">
+              <p className="text-sm font-medium text-foreground">Graduation moment</p>
+              <p className="mt-2 text-sm text-muted">
+                Paid rooms unlock when reputation, vouches, and helpful replies line up. Scholarship seats keep price from becoming the only gate.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+                <span className="rounded-full bg-white px-3 py-1">3 months in a free room</span>
+                <span className="rounded-full bg-white px-3 py-1">2 vouches</span>
+                <span className="rounded-full bg-white px-3 py-1">4 helpful replies</span>
+              </div>
+            </div>
+          </section>
+
           <section id="wire" className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -941,6 +1100,30 @@ export default function Home() {
                     {person.activityCount} signal{person.activityCount === 1 ? "" : "s"} across {person.rooms.size} room{person.rooms.size === 1 ? "" : "s"}
                   </p>
                 </Link>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold">Open Houses</h2>
+            <p className="mt-1 text-sm text-muted">A taste of paid-room quality without exposing the private room.</p>
+
+            <div className="mt-5 space-y-3">
+              {openHouses.map((house) => (
+                <div key={`${house.room}-${house.date}`} className="rounded-2xl border border-line bg-panel px-4 py-4">
+                  <p className="font-medium text-foreground">{house.room}</p>
+                  <p className="mt-1 text-sm text-muted">
+                    {house.date}, {house.time} · {house.spots} spots left
+                  </p>
+                  <p className="mt-2 text-sm text-muted">{house.brief}</p>
+                  <button
+                    type="button"
+                    onClick={() => setFlash(`Registered interest for ${house.room} Open House.`)}
+                    className="mt-3 rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                  >
+                    Register free
+                  </button>
+                </div>
               ))}
             </div>
           </section>
