@@ -611,7 +611,7 @@ export default function GroupDetailPage({ params }: PageProps) {
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-2">
             <Link href="/" className="text-sm font-medium text-muted transition hover:text-foreground">
-              Back to dashboard
+              Back to The Floor
             </Link>
             <div className="flex items-center gap-3">
               <h1 className="text-4xl font-semibold tracking-tight">{group?.name || "Loading group..."}</h1>
@@ -638,7 +638,7 @@ export default function GroupDetailPage({ params }: PageProps) {
               href={`/owner/groups/${group.id}`}
               className="rounded-full border border-line bg-panel px-4 py-2 text-sm font-medium text-muted transition hover:border-foreground hover:text-foreground"
             >
-              Open owner dashboard
+              Curator controls
             </Link>
           </div>
         ) : null}
@@ -659,7 +659,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                   Curated by {group.owner?.name || group.owner?.email || group.ownerId}
                 </p>
                 <p className="mt-2 text-sm text-muted">
-                  Members are expected to contribute context, not opinions.
+                  At the table now: context, introductions, and judgment with receipts.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   {isActiveMember ? (
@@ -670,7 +670,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                       }
                       className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
                     >
-                      Start a discussion
+                      Take the hot seat
                     </button>
                   ) : (
                     <Link
@@ -682,7 +682,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                       {!currentUserId
                         ? "Sign in to apply"
                         : hasPendingAccess
-                          ? "Application in review"
+                          ? "Awaiting vouches"
                           : "Apply to join"}
                     </Link>
                   )}
@@ -691,7 +691,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                       href={`/groups/${group.id}/votes`}
                       className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
                     >
-                      Member review
+                      Vouching
                     </Link>
                   ) : null}
                   {canLeaveRoom ? (
@@ -704,12 +704,12 @@ export default function GroupDetailPage({ params }: PageProps) {
                     </button>
                   ) : null}
                   <span className="rounded-full bg-stone-100 px-3 py-2 text-xs font-medium text-stone-700">
-                    {group.requests.filter((request) => request.status === "open").length} active topics
+                    {group.requests.filter((request) => request.status === "open").length} live signals
                   </span>
                 </div>
                 {!isActiveMember ? (
                   <p className="mt-4 text-sm text-muted">
-                    Members can join up to 4 rooms. Apply with context and contribution, then active members can sponsor strong applicants into review.
+                    Apply with context and contribution. Strong applicants move by member vouch, not queue position.
                   </p>
                 ) : null}
                 {showLeavePanel && canLeaveRoom ? (
@@ -779,7 +779,7 @@ export default function GroupDetailPage({ params }: PageProps) {
               {isActiveMember ? (
                 <div id="ask-in-group" className="mt-5 rounded-2xl border border-line bg-white p-5">
                   <div className="space-y-1">
-                    <h2 className="text-xl font-semibold">Discussions</h2>
+                    <h2 className="text-xl font-semibold">Hot Seat</h2>
                     <p className="text-sm text-muted">
                       Bring a real decision, tradeoff, or pattern the room can sharpen quickly.
                     </p>
@@ -793,7 +793,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                         </p>
                       </div>
                     ) : null}
-                    <p className="text-sm font-medium">Share with the group</p>
+                    <p className="text-sm font-medium">Bring it to the table</p>
                     <p className="text-sm text-muted">Clear context leads to better replies.</p>
                     <p className="text-sm text-muted">
                       {selectedDiscussionType.bodyExample}
@@ -850,7 +850,7 @@ export default function GroupDetailPage({ params }: PageProps) {
               ) : (
                 <div id="ask-in-group" className="mt-5 rounded-2xl border border-line bg-white p-5">
                   <div className="space-y-1">
-                    <h2 className="text-xl font-semibold">Discussions</h2>
+                    <h2 className="text-xl font-semibold">Hot Seat</h2>
                     <p className="text-sm text-muted">
                       This room opens up once you are an active member. Public discussion comes first, then private follow-up if useful.
                     </p>
@@ -859,7 +859,7 @@ export default function GroupDetailPage({ params }: PageProps) {
               )}
 
               <div className="mt-5 rounded-2xl border border-line bg-white p-5">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted">Pinned topics</h3>
+                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted">At the table</h3>
                 <div className="mt-3 space-y-3">
                   {!pinnedRequests.filter((request) => request.status === "open").length ? (
                     <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-4 text-sm text-muted">
@@ -885,13 +885,13 @@ export default function GroupDetailPage({ params }: PageProps) {
                   <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <label className="block flex-1 space-y-2">
                       <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-                        Search discussions
+                        Find signal
                       </span>
                       <input
                         className="w-full rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
                         value={discussionSearch}
                         onChange={(event) => setDiscussionSearch(event.target.value)}
-                        placeholder="Search active and resolved discussions..."
+                        placeholder="Search live and resolved signals..."
                       />
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -921,7 +921,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                   <div className="rounded-2xl border border-line bg-white p-5">
                     {!hasAnyDiscussions ? (
                       <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-5 text-sm text-muted">
-                        <p className="font-medium text-foreground">No discussions yet.</p>
+                        <p className="font-medium text-foreground">No signals yet.</p>
                         <p className="mt-1">
                           This room is ready for its first real thread. Start with a concrete decision where strong context will produce a strong reply.
                         </p>
@@ -948,8 +948,8 @@ export default function GroupDetailPage({ params }: PageProps) {
                 {(discussionFilter === "all" || discussionFilter === "resolved") ? (
                   <div className="rounded-2xl border border-line bg-white p-5">
                     <div className="space-y-1">
-                      <h3 className="text-lg font-semibold">Resolved discussions</h3>
-                      <p className="text-sm text-muted">Decisions and outcomes from past discussions.</p>
+                      <h3 className="text-lg font-semibold">The Ledger</h3>
+                      <p className="text-sm text-muted">Decisions and outcomes this room has shaped.</p>
                     </div>
                     <div className="mt-4">
                       {renderDiscussionRows(
@@ -965,8 +965,8 @@ export default function GroupDetailPage({ params }: PageProps) {
             </section>
             <aside className="space-y-6">
               <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
-                <h2 className="text-xl font-semibold">Members · {activeMembers.length} of 50</h2>
-                <p className="mt-1 text-sm text-muted">People in this room who are expected to add operating context, not generic takes.</p>
+                <h2 className="text-xl font-semibold">At The Table · {activeMembers.length} of 50 seats</h2>
+                <p className="mt-1 text-sm text-muted">Members leaning in with operating context, not generic takes.</p>
 
                 <div className="mt-5 space-y-3">
                   {(showAllMembers ? activeMembers : activeMembers.slice(0, 10)).map((membership) => {
@@ -1063,19 +1063,19 @@ export default function GroupDetailPage({ params }: PageProps) {
               </section>
 
               <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
-                <h2 className="text-xl font-semibold">Waiting list · {waitingListMembers.length}</h2>
+                <h2 className="text-xl font-semibold">Awaiting Vouches · {waitingListMembers.length}</h2>
                 <p className="mt-1 text-sm text-muted">
-                  Access opens selectively. New members move through member review, not first-come queueing.
+                  Access opens selectively. New members move through vouching, not first-come queueing.
                 </p>
                 <p className="mt-2 text-sm text-muted">
-                  Right now that means {waitlistVoteThreshold} {waitlistVoteThreshold === 1 ? "member attestation" : "member attestations"}. Queued candidates need to be sponsored into active review first.
+                  Right now that means {waitlistVoteThreshold} member {waitlistVoteThreshold === 1 ? "vouch" : "vouches"}. Queued candidates need a sponsor before the room weighs in.
                 </p>
                 {isActiveMember && votableCandidates.length ? (
                   <Link
                     href={`/groups/${group.id}/votes`}
                     className="mt-3 inline-flex rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
                   >
-                    Review {votableCandidates.length} candidate{votableCandidates.length === 1 ? "" : "s"}
+                    Vouch on {votableCandidates.length} candidate{votableCandidates.length === 1 ? "" : "s"}
                   </Link>
                 ) : null}
 
@@ -1105,7 +1105,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                         <div className="shrink-0 text-right">
                           <p className="text-xs font-medium text-foreground">
                             {membership.status === "pending"
-                              ? `${membership.votes?.length ?? 0}/${waitlistVoteThreshold} attestations · Active review`
+                              ? `${membership.votes?.length ?? 0}/${waitlistVoteThreshold} vouches · In motion`
                               : "Queued · Needs sponsor"}
                           </p>
                           <p className="mt-1 text-xs text-muted">{formatJoinedLabel(membership.createdAt)}</p>
@@ -1116,7 +1116,7 @@ export default function GroupDetailPage({ params }: PageProps) {
 
                   {waitingListMembers.length > 6 ? (
                     <div className="rounded-2xl border border-dashed border-line px-4 py-3 text-sm text-muted">
-                      {waitingListMembers.length - 6} more people are waiting for review.
+                      {waitingListMembers.length - 6} more people are waiting for a path in.
                     </div>
                   ) : null}
                 </div>

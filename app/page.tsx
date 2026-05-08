@@ -121,13 +121,9 @@ function formatRelativeTime(value: string | number) {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-function formatCompactNumber(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
-}
-
 function urgencyLabel(urgency: TriageRow["urgency"]) {
-  if (urgency === "urgent") return "Overdue";
-  if (urgency === "decision") return "Needs review";
+  if (urgency === "urgent") return "Hot";
+  if (urgency === "decision") return "Warm";
   return "Fresh";
 }
 
@@ -171,18 +167,26 @@ function groupStatusCopy(group: Group, currentUserId: string) {
   const openTopics = group.requests.filter((request) => request.status === "open").length;
 
   if (inReview) {
-    return `${inReview} candidate${inReview === 1 ? "" : "s"} awaiting review`;
+    return `${inReview} candidate${inReview === 1 ? "" : "s"} awaiting vouches`;
   }
 
   if (needsInput) {
-    return `${needsInput} item${needsInput === 1 ? "" : "s"} need input`;
+    return `${needsInput} hot signal${needsInput === 1 ? "" : "s"}`;
   }
 
   if (openTopics) {
-    return `${openTopics} open topic${openTopics === 1 ? "" : "s"}`;
+    return `${openTopics} live thread${openTopics === 1 ? "" : "s"}`;
   }
 
-  return "Quiet";
+  return "quiet";
+}
+
+function NavIcon({ path }: { path: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+      <path d={path} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 export default function Home() {
@@ -196,7 +200,6 @@ export default function Home() {
   const [isCredentialSigningIn, setIsCredentialSigningIn] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
-  const [pathfinderQuery, setPathfinderQuery] = useState("");
 
   const currentUserId = session?.user?.id ?? null;
 
@@ -254,21 +257,6 @@ export default function Home() {
     });
   }, [currentUserId, memberGroups]);
 
-  const totalWaiting = useMemo(
-    () =>
-      prioritizedGroups.reduce(
-        (total, group) =>
-          total +
-          group.memberships.filter((membership) =>
-            membership.status === "waitlist" ||
-            membership.status === "pending" ||
-            membership.status === "invited",
-          ).length,
-        0,
-      ),
-    [prioritizedGroups],
-  );
-
   const totalInReview = useMemo(
     () =>
       prioritizedGroups.reduce(
@@ -276,19 +264,6 @@ export default function Home() {
         0,
       ),
     [prioritizedGroups],
-  );
-
-  const activeMemberSlotsUsed = useMemo(
-    () =>
-      prioritizedGroups.filter((group) =>
-        group.memberships.some(
-          (membership) =>
-            membership.userId === currentUserId &&
-            membership.status === "active" &&
-            membership.role !== "owner",
-        ),
-      ).length,
-    [currentUserId, prioritizedGroups],
   );
 
   const reviewRows = useMemo<ReviewRow[]>(
@@ -307,30 +282,6 @@ export default function Home() {
         .filter((row) => row.candidateCount > 0),
     [prioritizedGroups],
   );
-
-  const networkReach = useMemo(() => {
-    if (!currentUserId) {
-      return {
-        directPeers: 0,
-        estimatedExtendedReach: 0,
-      };
-    }
-
-    const directPeerIds = new Set<string>();
-
-    memberGroups.forEach((group) => {
-      group.memberships.forEach((membership) => {
-        if (membership.status === "active" && membership.userId !== currentUserId) {
-          directPeerIds.add(membership.userId);
-        }
-      });
-    });
-
-    return {
-      directPeers: directPeerIds.size,
-      estimatedExtendedReach: directPeerIds.size * 147,
-    };
-  }, [currentUserId, memberGroups]);
 
   const triageRows = useMemo((): TriageRow[] => {
     if (!currentUserId) return [];
@@ -376,11 +327,11 @@ export default function Home() {
         groupId: row.groupId,
         groupName: row.groupName,
         discussionId: "",
-        discussionTitle: `${row.candidateCount} candidate${row.candidateCount === 1 ? "" : "s"} need member review`,
-        startedBy: "Room governance",
-        lastActivityLabel: "awaiting attestation",
-        latestPreview: "Attest fit only when you would be comfortable sharing the room with this person.",
-        actionLabel: "Review candidates",
+        discussionTitle: `${row.candidateCount} candidate${row.candidateCount === 1 ? "" : "s"} awaiting vouches`,
+        startedBy: "The room",
+        lastActivityLabel: "vouching in motion",
+        latestPreview: "Vouch only when you would share the room and attach your context.",
+        actionLabel: "Review vouches",
         mode: "attestation",
         urgency: "decision",
         timestamp: Date.now(),
@@ -447,17 +398,12 @@ export default function Home() {
       .slice(0, 5);
   }, [currentUserId, prioritizedGroups]);
 
-  const pathfinderHint = useMemo(() => {
-    const query = pathfinderQuery.trim();
+  const rosterPath = useMemo(() => {
     const person = hotPeople.find((item) => item.rooms.size > 0) ?? hotPeople[0];
-    if (!person) return query ? "No trusted route yet. Join rooms to build paths across the network." : "Join rooms to build trusted paths across the network.";
+    if (!person) return "Join rooms to build warm paths across the network.";
 
-    if (query) {
-      return `Best current route for "${query}": You -> ${person.name} -> ${person.rooms.values().next().value || "another room"}.`;
-    }
-
-    return `You -> ${person.name} -> ${person.rooms.values().next().value || "another room"} signal.`;
-  }, [hotPeople, pathfinderQuery]);
+    return `You -> ${person.name} -> ${person.rooms.values().next().value || "another room"}`;
+  }, [hotPeople]);
 
   const currentUser = useMemo(() => {
     if (!currentProfile) return null;
@@ -524,6 +470,10 @@ export default function Home() {
     setFlash(null);
     await signOut({ redirect: false });
     setFlash("Signed out");
+  }
+
+  function handleMessagesClick() {
+    setFlash("Messaging inbox is coming next. For now, open a room and continue the thread there.");
   }
 
   if (!currentUserId) {
@@ -623,46 +573,100 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background px-6 py-10 text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
+        <section className="rounded-[24px] border border-line bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-full bg-panel px-3 py-2 text-sm font-medium text-foreground"
+              >
+                <NavIcon path="M4 10.5 12 4l8 6.5M6.5 9.5V20h11V9.5" />
+                <span>The Floor</span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleMessagesClick}
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground"
+              >
+                <NavIcon path="M5 7.5h14v9H9l-4 3v-12Z" />
+                <span>Messages</span>
+              </button>
+              <a
+                href="#wire"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground"
+              >
+                <NavIcon path="M12 4.5a5 5 0 0 0-5 5V12l-1.5 2.5h13L17 12V9.5a5 5 0 0 0-5-5ZM10 18.5a2 2 0 0 0 4 0" />
+                <span>The Wire</span>
+              </a>
+              <a
+                href="#roster"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground"
+              >
+                <NavIcon path="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.5 19a4.5 4.5 0 0 1 9 0M11.5 19a4.5 4.5 0 0 1 9 0" />
+                <span>The Roster</span>
+              </a>
+              <a
+                href="#ledger"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground"
+              >
+                <NavIcon path="M6 5.5h12M6 12h12M6 18.5h8" />
+                <span>The Ledger</span>
+              </a>
+            </div>
+
+            {currentUser ? (
+              <Link
+                href={`/members/${currentUser.id}`}
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground"
+              >
+                <NavIcon path="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" />
+                <span>Me</span>
+              </Link>
+            ) : null}
+          </div>
+        </section>
+
         <div className="grid gap-6 xl:grid-cols-[1.45fr_0.8fr]">
           <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-2xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Trust50 cockpit</p>
-                <h1 className="mt-2 text-4xl font-semibold tracking-tight">Your network home</h1>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Trust50 · The Floor</p>
+                <h1 className="mt-2 text-4xl font-semibold tracking-tight">Your four rooms. One view.</h1>
                 <p className="mt-2 text-sm leading-7 text-muted">
-                  Four rooms. One control centre for the decisions, reviews, and outcomes that matter right now.
+                  A private surface for live judgment, warm paths, and the people who can move a decision two steps away.
                 </p>
                 <p className="mt-2 text-sm leading-7 text-muted">
-                  Members can join up to 4 groups, enough to know the room and still move across Trust50 with context.
+                  Live signal, warm paths, and proof that access is turning into outcomes.
                 </p>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Room slots</p>
-                    <p className={`mt-2 text-3xl font-semibold ${activeMemberSlotsUsed >= 4 ? "text-amber-700" : ""}`}>
-                      {activeMemberSlotsUsed}/4
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Direct peers</p>
-                    <p className="mt-2 text-3xl font-semibold">{formatCompactNumber(networkReach.directPeers)}</p>
-                  </div>
-                  <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Extended reach</p>
-                    <p className="mt-2 text-3xl font-semibold">~{formatCompactNumber(networkReach.estimatedExtendedReach)}</p>
-                  </div>
-                  <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Waiting rooms</p>
-                    <p className="mt-2 text-3xl font-semibold">{totalWaiting}</p>
-                  </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {prioritizedGroups.slice(0, 4).map((group) => {
+                    const needsInput = getDiscussionsNeedingInput(group, currentUserId!);
+                    const pendingVouches = group.memberships.filter((membership) => membership.status === "pending").length;
+                    const heat = pendingVouches || needsInput ? `${pendingVouches + needsInput} hot` : "quiet";
+
+                    return (
+                      <Link
+                        key={`floor-${group.id}`}
+                        href={`/groups/${group.id}`}
+                        className="rounded-2xl border border-line bg-panel px-4 py-4 transition hover:border-foreground"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium text-foreground">{group.name}</p>
+                          <span className={heat === "quiet" ? "text-sm text-muted" : "text-sm font-medium text-rose-700"}>
+                            {heat}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-muted">{groupStatusCopy(group, currentUserId!)}</p>
+                      </Link>
+                    );
+                  })}
+                  {!prioritizedGroups.length ? (
+                    <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-4 text-sm text-muted">
+                      Your rooms will appear here once you join the floor.
+                    </div>
+                  ) : null}
                 </div>
-
-                <p className="mt-4 text-sm text-muted">
-                  {activeMemberSlotsUsed >= 4
-                    ? "You are using all 4 member slots. To join a new room, leave one or start running a room."
-                    : "Member slots are capped at 4 so your room graph stays legible."}
-                </p>
-                <p className="mt-2 text-sm text-muted">Pathfinder: {pathfinderHint}</p>
               </div>
 
               <div className="space-y-4 lg:w-[270px]">
@@ -720,14 +724,14 @@ export default function Home() {
           <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-semibold">My groups</h2>
-                <p className="mt-1 text-sm text-muted">The rooms that need your attention first.</p>
+                <h2 className="text-xl font-semibold">Your rooms</h2>
+                <p className="mt-1 text-sm text-muted">Private tables ordered by live signal.</p>
               </div>
               <Link
                 href="/explore-groups"
                 className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
               >
-                Browse available rooms
+                Browse rooms
               </Link>
             </div>
 
@@ -757,7 +761,9 @@ export default function Home() {
                               : "bg-stone-900"
                           }`}
                         />
-                        <span className="text-sm font-medium text-foreground">Open</span>
+                        <span className="text-sm font-medium text-foreground">
+                          {needsInput ? "Hot" : "Open"}
+                        </span>
                       </div>
                     </Link>
                   );
@@ -799,22 +805,22 @@ export default function Home() {
             </section>
           ) : null}
 
-          <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+          <section id="wire" className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold">Input required</h2>
+                <h2 className="text-xl font-semibold">The Wire</h2>
                 <p className="mt-1 text-sm text-muted">
-                  Places where your reply, challenge, attestation, or intro can move something forward.
+                  Lightweight judgment from your rooms. Handle it, pass, or leave a signal for later.
                 </p>
               </div>
 
               <span className="rounded-full bg-rose-100 px-4 py-2 text-sm font-medium text-rose-800">
-                {triageRows.length} active signal{triageRows.length === 1 ? "" : "s"} need attention
+                {triageRows.length} thing{triageRows.length === 1 ? "" : "s"} need you
               </span>
             </div>
 
             <div className="mt-5 space-y-3">
-              {!triageRows.length ? <p className="text-sm text-muted">No input required right now. Your rooms are quiet.</p> : null}
+              {!triageRows.length ? <p className="text-sm text-muted">The wire is quiet right now.</p> : null}
 
               {triageRows.map((item) => (
                 <Link
@@ -831,20 +837,26 @@ export default function Home() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">{item.groupName}</p>
-                      <p className="mt-1 text-sm font-medium text-foreground">{item.startedBy} needs movement</p>
+                      <p className="mt-1 text-sm font-medium text-foreground">
+                        {item.mode === "attestation" ? "Awaiting room vouches" : `${item.startedBy} opened a signal`}
+                      </p>
                     </div>
                     <span className="rounded-full border border-line bg-white px-3 py-1 text-xs font-medium text-foreground">
                       {item.mode === "attestation"
-                        ? "Attestation"
+                        ? "Vouch"
                         : item.mode === "first-reply"
-                          ? "First reply"
-                          : "Judgment needed"}
+                          ? "First mover"
+                          : "Judgment"}
                     </span>
                   </div>
                   <p className="mt-3 text-[15px] font-medium leading-6 text-foreground">&ldquo;{item.discussionTitle}&rdquo;</p>
-                  <p className="mt-2 text-sm leading-6 text-muted">Latest: &ldquo;{item.latestPreview}&rdquo;</p>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    {item.mode === "first-reply" ? "Nobody has replied yet. First mover signal available." : `Latest: "${item.latestPreview}"`}
+                  </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
                     <span className="rounded-full bg-white px-3 py-1">{item.actionLabel}</span>
+                    <span className="rounded-full bg-white px-3 py-1">Pass</span>
+                    <span className="rounded-full bg-white px-3 py-1">Signal later</span>
                     <span>{item.lastActivityLabel}</span>
                     <span>{urgencyLabel(item.urgency)}</span>
                   </div>
@@ -854,9 +866,9 @@ export default function Home() {
           </section>
 
           {recentOutcomes.length ? (
-            <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold">Outcome ledger</h2>
-              <p className="mt-1 text-sm text-muted">Proof that the rooms are creating movement, not just messages.</p>
+            <section id="ledger" className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-semibold">The Ledger</h2>
+              <p className="mt-1 text-sm text-muted">Proof that rooms are creating movement, not just messages.</p>
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {recentOutcomes.map((item) => (
@@ -882,8 +894,8 @@ export default function Home() {
           <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-semibold">Member review</h2>
-                <p className="mt-1 text-sm text-muted">Admissions that need sober attestation from the room.</p>
+                <h2 className="text-xl font-semibold">Vouching</h2>
+                <p className="mt-1 text-sm text-muted">Social capital in motion. Context beats yes/no.</p>
               </div>
               <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
                 {totalInReview}
@@ -893,26 +905,26 @@ export default function Home() {
             <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-4">
               <p className="text-sm font-medium text-foreground">
                 {totalInReview
-                  ? `${totalInReview} candidate${totalInReview === 1 ? "" : "s"} need attestation across your rooms.`
-                  : "No candidates are waiting for attestations."}
+                  ? `${totalInReview} candidate${totalInReview === 1 ? "" : "s"} awaiting vouches across your rooms.`
+                  : "No candidates are waiting for vouches."}
               </p>
               <p className="mt-2 text-sm text-muted">
-                Attestation now shows up in Input required so governance sits with the rest of your work.
+                Vouch only when you can add context the room can trust.
               </p>
               {reviewRows[0] ? (
                 <Link
                   href={`/groups/${reviewRows[0].groupId}/votes`}
                   className="mt-3 inline-flex rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
                 >
-                  Open review queue
+                  Open vouch queue
                 </Link>
               ) : null}
             </div>
           </section>
 
           <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">Signal map</h2>
-            <p className="mt-1 text-sm text-muted">The people heating up across your four-room surface area.</p>
+            <h2 className="text-xl font-semibold">Signal Map</h2>
+            <p className="mt-1 text-sm text-muted">People leaning in across your rooms.</p>
 
             <div className="mt-5 space-y-3">
               {!hotPeople.length ? <p className="text-sm text-muted">Join rooms to see active people here.</p> : null}
@@ -933,27 +945,25 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">Pathfinder</h2>
-            <p className="mt-1 text-sm text-muted">Trust50 is a route map, not a feed.</p>
-            <label className="mt-5 block space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Find the expert</span>
-              <input
-                value={pathfinderQuery}
-                onChange={(event) => setPathfinderQuery(event.target.value)}
-                placeholder="Need LatAm finance CFO"
-                className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-              />
-            </label>
+          <section id="roster" className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold">The Roster</h2>
+            <p className="mt-1 text-sm text-muted">Who can get you where, without cold search.</p>
             <div className="mt-5 rounded-2xl border border-line bg-panel px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Warm path</p>
               <p className="text-sm font-medium text-foreground">
-                {pathfinderQuery.trim()
-                  ? pathfinderHint
-                  : "Type a target above to turn your room network into a warm path."}
+                {rosterPath}
               </p>
               <p className="mt-2 text-sm text-muted">
-                Ask in the room where trust is strongest first. The second hop is usually warmer than a cold search.
+                Ask in the room where trust is strongest first. The second hop is usually warmer than a directory.
               </p>
+              {hotPeople[0] ? (
+                <Link
+                  href={`/members/${hotPeople[0].id}`}
+                  className="mt-3 inline-flex rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                >
+                  View strongest path
+                </Link>
+              ) : null}
             </div>
           </section>
 

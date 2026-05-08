@@ -81,12 +81,12 @@ function discussionTitle(discussion: Discussion) {
 }
 
 function getDiscussionStatusLabel(discussion: Discussion) {
-  if (discussion.status !== "open") return "Resolved";
+  if (discussion.status !== "open") return "Ledgered";
 
   const latestActivity = discussion.replies.at(-1)?.createdAt || discussion.createdAt;
   const hoursSince = (Date.now() - new Date(latestActivity).getTime()) / (1000 * 60 * 60);
 
-  if (discussion.replies.length >= 2 && hoursSince <= 72) return "Active discussion";
+  if (discussion.replies.length >= 2 && hoursSince <= 72) return "Hot signal";
   if (hoursSince > 72) return "Quiet";
   return "Open";
 }
@@ -266,7 +266,7 @@ export default function DiscussionPage({ params }: PageProps) {
       return;
     }
     setDiscussion((current) => current ? { ...current, ...data } : current);
-    setFlash(status === "closed" ? "Discussion resolved" : "Discussion reopened");
+    setFlash(status === "closed" ? "Moved to The Ledger" : "Signal reopened");
     if (status === "closed") setShowResolveModal(false);
   }
 
@@ -274,7 +274,7 @@ export default function DiscussionPage({ params }: PageProps) {
     <main className="min-h-screen bg-background px-6 py-16 text-foreground">
       <div className="mx-auto max-w-5xl space-y-8">
         <Link href={routeParams ? `/groups/${routeParams.id}` : "/"} className="text-sm font-medium text-muted transition hover:text-foreground">
-          Back to group
+          Back to room
         </Link>
 
         {flash ? <div className="rounded-2xl border border-line bg-panel px-4 py-3 text-sm text-muted">{flash}</div> : null}
@@ -302,13 +302,13 @@ export default function DiscussionPage({ params }: PageProps) {
                       onClick={() => setShowResolveModal(true)}
                       className="rounded-full border border-line px-4 py-2 text-sm font-medium transition hover:border-foreground"
                     >
-                      Mark as resolved
+                      Move to Ledger
                     </button>
                   ) : null}
                 </div>
                 {discussion.status !== "open" && discussion.outcome ? (
                   <div className="mt-4 rounded-2xl bg-panel px-4 py-4">
-                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted">Outcome</p>
+                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted">Ledger</p>
                     <p className="mt-2 text-sm text-foreground">{discussion.outcome}</p>
                     {getOutcomeTypeLabel(discussion.outcomeType) ? (
                       <p className="mt-2 text-sm text-muted">{getOutcomeTypeLabel(discussion.outcomeType)}</p>
@@ -325,22 +325,22 @@ export default function DiscussionPage({ params }: PageProps) {
 
               {shouldNudgeResolve ? (
                 <div className="mt-5 rounded-2xl border border-line bg-white p-5">
-                  <p className="text-sm font-medium text-foreground">Did this discussion lead to a decision?</p>
-                  <p className="mt-1 text-sm text-muted">Mark it as resolved so the room stays focused on active topics.</p>
+                  <p className="text-sm font-medium text-foreground">Did this signal lead to a decision?</p>
+                  <p className="mt-1 text-sm text-muted">Move it to The Ledger so the room can see what changed.</p>
                   <button
                     type="button"
                     onClick={() => setShowResolveModal(true)}
                     className="mt-3 rounded-full border border-line px-4 py-2 text-sm font-medium transition hover:border-foreground"
                   >
-                    Mark as resolved
+                    Move to Ledger
                   </button>
                 </div>
               ) : null}
 
               <div className="mt-5 rounded-2xl border border-line bg-white p-5">
-                <h2 className="text-lg font-semibold">Replies</h2>
+                <h2 className="text-lg font-semibold">Room Takes</h2>
                 <div className="mt-4 space-y-3">
-                  {!discussion.replies.length ? <p className="text-sm text-muted">No replies yet. Be the first to help.</p> : null}
+                  {!discussion.replies.length ? <p className="text-sm text-muted">No takes yet. First mover signal is available.</p> : null}
                   {discussion.replies.map((reply) => (
                     <div key={reply.id} className="rounded-2xl border border-line px-4 py-4">
                       <div className="flex flex-wrap items-center gap-2">
@@ -366,11 +366,11 @@ export default function DiscussionPage({ params }: PageProps) {
                 </div>
 
                 <div className="mt-5 rounded-2xl border border-dashed border-line p-4">
-                  <p className="text-sm font-medium">Reply</p>
+                  <p className="text-sm font-medium">Add your take</p>
                   <p className="mt-1 text-sm text-muted">Share perspective, context, or the next step you would suggest.</p>
-                  <textarea className="mt-3 min-h-24 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground" value={replyBody} onChange={(event) => setReplyBody(event.target.value)} placeholder="Add a thoughtful public reply." />
+                  <textarea className="mt-3 min-h-24 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground" value={replyBody} onChange={(event) => setReplyBody(event.target.value)} placeholder="Add a clear public take." />
                   <button type="button" onClick={() => void postReply()} className="mt-3 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90">
-                    Post reply
+                    Add take
                   </button>
                 </div>
               </div>
@@ -378,8 +378,8 @@ export default function DiscussionPage({ params }: PageProps) {
 
             <aside className="space-y-6">
               <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
-                <h2 className="text-lg font-semibold">Private follow-up</h2>
-                <p className="mt-1 text-sm text-muted">Keep public replies primary. Move into direct follow-up only when it helps the discussion progress.</p>
+                <h2 className="text-lg font-semibold">Warm Follow-up</h2>
+                <p className="mt-1 text-sm text-muted">Move privately only when the next step needs a direct path.</p>
                 <div className="mt-4 space-y-3">
                   {discussion.introductions.length ? discussion.introductions.map((intro) => (
                     <div key={intro.id} className="rounded-2xl border border-line bg-white px-4 py-4">
@@ -394,15 +394,15 @@ export default function DiscussionPage({ params }: PageProps) {
 
               {discussion.status !== "open" && canModerate ? (
                 <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold">Discussion state</h2>
-                  <p className="mt-1 text-sm text-muted">This thread has been resolved and moved out of the active feed.</p>
+                  <h2 className="text-lg font-semibold">Signal State</h2>
+                  <p className="mt-1 text-sm text-muted">This thread has moved to The Ledger.</p>
                   <div className="mt-4">
                     <button
                       type="button"
                       onClick={() => void updateDiscussion("open")}
                       className="rounded-full border border-line px-4 py-2 text-sm font-medium transition hover:border-foreground"
                     >
-                      Reopen discussion
+                      Reopen signal
                     </button>
                   </div>
                 </section>
@@ -417,8 +417,8 @@ export default function DiscussionPage({ params }: PageProps) {
           <div className="w-full max-w-xl rounded-3xl border border-line bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold">Mark this discussion as resolved</h2>
-                <p className="mt-1 text-sm text-muted">Capture the outcome so the room can learn from it later.</p>
+                <h2 className="text-xl font-semibold">Move this signal to The Ledger</h2>
+                <p className="mt-1 text-sm text-muted">Capture the outcome so the room can see what moved.</p>
               </div>
               <button
                 type="button"
@@ -481,7 +481,7 @@ export default function DiscussionPage({ params }: PageProps) {
                 disabled={!outcome.trim()}
                 className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Mark as resolved
+                Move to Ledger
               </button>
             </div>
           </div>
