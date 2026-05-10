@@ -19,10 +19,50 @@ export async function GET() {
   const session = await getAuthSession();
 
   if (!session?.user?.id) {
-    return NextResponse.json(await getPublicDiscoveryGroups());
+    const groups = await getPublicDiscoveryGroups();
+    return NextResponse.json(
+      groups.map((group) => ({
+        ...group,
+        memberships: group.memberships.map(({ id, role, status, createdAt }) => ({
+          id,
+          role,
+          status,
+          createdAt,
+          userId: "",
+        })),
+      })),
+    );
   }
 
-  return NextResponse.json(await getGroupsWithRelations(session.user.id));
+  const groups = await getGroupsWithRelations(session.user.id);
+
+  return NextResponse.json(
+    groups.map((group) => {
+      const viewerMembership = group.memberships.find((membership) => membership.userId === session.user.id);
+      const canViewPeopleAndContent = group.ownerId === session.user.id || viewerMembership?.status === "active";
+
+      if (canViewPeopleAndContent) {
+        return group;
+      }
+
+      return {
+        ...group,
+        requests: [],
+        memberships: group.memberships.map((membership) => {
+          const isViewer = membership.userId === session.user.id;
+
+          return {
+            id: membership.id,
+            role: membership.role,
+            status: membership.status,
+            createdAt: membership.createdAt,
+            userId: isViewer ? membership.userId : "",
+            groupId: membership.groupId,
+          };
+        }),
+      };
+    }),
+  );
 }
 
 export async function POST(req: Request) {

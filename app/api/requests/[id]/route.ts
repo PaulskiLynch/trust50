@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { MembershipStatus } from "@prisma/client";
 import { z } from "zod";
 
 import { getAuthSession } from "@/lib/auth";
@@ -100,7 +101,12 @@ export async function GET(_: Request, context: RouteContext) {
     },
   });
 
-  if (!membership && !session.user.isAdmin) {
+  const canViewDiscussion =
+    session.user.isAdmin ||
+    requestRecord.group.ownerId === session.user.id ||
+    membership?.status === MembershipStatus.active;
+
+  if (!canViewDiscussion) {
     return NextResponse.json({ error: "Not authorized for this discussion" }, { status: 403 });
   }
 

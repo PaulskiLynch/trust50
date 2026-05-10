@@ -34,7 +34,13 @@ export async function GET(_: Request, context: RouteContext) {
   if (!session?.user?.id) {
     return NextResponse.json({
       ...group,
-      memberships: [],
+      memberships: group.memberships.map(({ id, role, status, createdAt }) => ({
+        id,
+        role,
+        status,
+        createdAt,
+        userId: "",
+      })),
       requests: [],
     });
   }
@@ -51,6 +57,17 @@ export async function GET(_: Request, context: RouteContext) {
 
     return NextResponse.json({
       ...publicGroup,
+      memberships: publicGroup.memberships.map((membership) => {
+        const isViewer = membership.userId === session.user.id;
+
+        return {
+          id: membership.id,
+          role: membership.role,
+          status: membership.status,
+          createdAt: membership.createdAt,
+          userId: isViewer ? membership.userId : "",
+        };
+      }),
       requests: [],
     });
   }
