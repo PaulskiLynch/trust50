@@ -79,12 +79,6 @@ function priceLabel(price: number | null) {
   return price && price > 0 ? `EUR ${price}/month` : "Free";
 }
 
-function statusLabel(status: string) {
-  if (status === "active") return "Established";
-  if (status === "emerging") return "Active";
-  return "Draft";
-}
-
 function initials(value: string | null | undefined) {
   const source = value?.trim() || "Trust50";
   return source
@@ -104,7 +98,7 @@ function oneLine(value: string, limit = 96) {
   return compact.length > limit ? `${compact.slice(0, limit - 3)}...` : compact;
 }
 
-function recentDiscussions(group: Group) {
+function recentAsks(group: Group) {
   const text = `${group.id} ${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`.toLowerCase();
 
   if (text.match(/pharma|health|clinical|medical|biotech/)) {
@@ -128,6 +122,19 @@ function recentDiscussions(group: Group) {
   }
 
   return ["Warm intros that worked", "Decisions members are facing", "Who can help this week"];
+}
+
+function fitSignal(group: Group, tags: string[], activeFilter: string, query: string, waitingCount: number) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (waitingCount >= 30) return "Hard to enter";
+  if (activeFilter !== "All" && tags.includes(activeFilter)) return "Strong fit";
+  if (normalizedQuery && `${group.name} ${group.description || ""} ${tags.join(" ")}`.toLowerCase().includes(normalizedQuery)) {
+    return "Likely fit";
+  }
+  if (tags.includes("Founder/operator")) return "Founder-heavy";
+  if (tags.includes("Pharma/health")) return "Specialist room";
+  return "Selective";
 }
 
 function groupTags(group: Group) {
@@ -319,6 +326,8 @@ export default function ExploreGroupsPage() {
             ).length;
             const activeThreadCount = (group.requests ?? []).filter((request) => request.status === "open").length;
             const slotsFull = activeMemberSlotsUsed >= 4;
+            const tags = groupTags(group);
+            const waitingCount = waitlistCount + pendingCount;
             const difficultySignal = waitlistCount || pendingCount ? `${waitlistCount + pendingCount} waiting` : "Open seats";
             const activitySignal =
               activeThreadCount >= 3
@@ -329,7 +338,8 @@ export default function ExploreGroupsPage() {
                     ? "Fast replies"
                     : "New room";
             const peopleSignal = `Run by ${group.owner.name || group.owner.email}`;
-            const discussions = recentDiscussions(group);
+            const asks = recentAsks(group);
+            const roomFitSignal = fitSignal(group, tags, activeFilter, query, waitingCount);
 
             let action: { href: string; label: string; secondary?: boolean };
 
@@ -367,7 +377,7 @@ export default function ExploreGroupsPage() {
                       <span className="rounded-full bg-panel px-3 py-1 text-foreground">
                         {priceLabel(group.price)}
                       </span>
-                      <span className="rounded-full bg-panel px-3 py-1">{statusLabel(group.status)}</span>
+                      <span className="rounded-full bg-panel px-3 py-1">{roomFitSignal}</span>
                       <span className="rounded-full bg-panel px-3 py-1">{activitySignal}</span>
                     </div>
 
@@ -398,11 +408,11 @@ export default function ExploreGroupsPage() {
                         </div>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Recent discussions</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Recent asks</p>
                         <div className="mt-2 space-y-1.5">
-                          {discussions.slice(0, 2).map((discussion) => (
-                            <p key={discussion} className="text-sm text-foreground">
-                              {discussion}
+                          {asks.slice(0, 2).map((ask) => (
+                            <p key={ask} className="text-sm text-foreground">
+                              {ask}
                             </p>
                           ))}
                         </div>
@@ -410,7 +420,7 @@ export default function ExploreGroupsPage() {
                     </div>
 
                     <details className="border-b border-line pb-4">
-                      <summary className="cursor-pointer text-sm font-medium text-foreground">View room criteria</summary>
+                      <summary className="cursor-pointer text-sm font-medium text-foreground">Entry criteria</summary>
                       <div className="mt-4 grid gap-4 md:grid-cols-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">For</p>
@@ -433,7 +443,7 @@ export default function ExploreGroupsPage() {
                       href={`/groups/${group.id}`}
                       className="inline-flex w-full items-center justify-center rounded-full bg-foreground px-4 py-3 text-sm font-medium text-white transition hover:opacity-90"
                     >
-                      Open preview
+                      Preview room
                     </Link>
                     <Link
                       href={action.href}
