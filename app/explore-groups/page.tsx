@@ -40,8 +40,21 @@ type Group = {
   requests?: Request[];
 };
 
+const filterChips = [
+  "All",
+  "Founder/operator",
+  "Pharma/health",
+  "Creative",
+  "Local",
+  "Investing",
+  "Professional services",
+  "Free",
+  "Paid",
+  "Has open seats",
+];
+
 function priceLabel(price: number | null) {
-  return price && price > 0 ? `€${price}/month` : "Free";
+  return price && price > 0 ? `EUR ${price}/month` : "Free";
 }
 
 function statusLabel(status: string) {
@@ -55,11 +68,35 @@ function getMembership(group: Group, userId: string | null) {
   return group.memberships.find((membership) => membership.userId === userId) ?? null;
 }
 
+function oneLine(value: string, limit = 96) {
+  const compact = value.replace(/\s+/g, " ").trim();
+  return compact.length > limit ? `${compact.slice(0, limit - 3)}...` : compact;
+}
+
+function groupTags(group: Group) {
+  const text = `${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`.toLowerCase();
+  const tags = new Set<string>();
+
+  if (text.match(/founder|operator|startup|series|product|hiring|growth/)) tags.add("Founder/operator");
+  if (text.match(/pharma|health|clinical|medical|biotech|ai/)) tags.add("Pharma/health");
+  if (text.match(/creative|music|audio|producer|sync|dog|training/)) tags.add("Creative");
+  if (text.match(/warsaw|berlin|paris|latam|europe|local|property/)) tags.add("Local");
+  if (text.match(/invest|fund|capital|cfo|finance|risk/)) tags.add("Investing");
+  if (text.match(/ops|professional|services|management|regulatory|data/)) tags.add("Professional services");
+
+  tags.add(group.price && group.price > 0 ? "Paid" : "Free");
+  if (group.memberCount < 50) tags.add("Has open seats");
+
+  return [...tags];
+}
+
 export default function ExploreGroupsPage() {
   const { data: session, status } = useSession();
   const [groups, setGroups] = useState<Group[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState("All");
 
   const currentUserId = session?.user?.id ?? null;
 
@@ -105,11 +142,24 @@ export default function ExploreGroupsPage() {
     [currentUserId, groups],
   );
 
+  const filteredGroups = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return liveGroups.filter((group) => {
+      const tags = groupTags(group);
+      const matchesFilter = activeFilter === "All" || tags.includes(activeFilter);
+      const haystack = `${group.name} ${group.description || ""} ${group.whoFor} ${group.whoNotFor} ${group.valueProp} ${tags.join(" ")}`.toLowerCase();
+      const matchesQuery = !normalizedQuery || haystack.includes(normalizedQuery);
+
+      return matchesFilter && matchesQuery;
+    });
+  }, [activeFilter, liveGroups, query]);
+
   return (
     <main className="min-h-screen bg-background px-6 py-12 text-foreground">
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4 text-sm text-muted">
-          <p>Explore groups</p>
+          <p>Explore rooms</p>
           <Link href="/landing" className="font-medium transition hover:text-foreground">
             Back to landing page
           </Link>
@@ -120,8 +170,38 @@ export default function ExploreGroupsPage() {
             <h1 className="text-3xl font-semibold tracking-tight">Find the rooms worth one of your four slots</h1>
             <p className="text-sm leading-7 text-muted">
               Browse live Trust50 rooms, see how full they are, and request access where your context is strongest.
-              You can join up to four rooms as a member. Rooms you run do not count toward that limit.
             </p>
+            <p className="text-sm font-medium text-foreground">
+              You have 4 member slots. Choose rooms where you can both contribute and benefit.
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-line bg-white p-5 shadow-sm">
+          <label className="block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Best match</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
+              placeholder="Search by decision, industry, city, or role"
+            />
+          </label>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {filterChips.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => setActiveFilter(chip)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  activeFilter === chip
+                    ? "bg-foreground text-white"
+                    : "border border-line bg-white text-muted hover:border-foreground hover:text-foreground"
+                }`}
+              >
+                {chip}
+              </button>
+            ))}
           </div>
         </section>
 
@@ -140,7 +220,7 @@ export default function ExploreGroupsPage() {
                 href="/"
                 className="rounded-full border border-line bg-panel px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
               >
-                Back to cockpit
+                Back to feed
               </Link>
             </div>
           </section>
@@ -181,13 +261,13 @@ export default function ExploreGroupsPage() {
             </div>
           ) : null}
 
-          {!loading && !liveGroups.length ? (
+          {!loading && !filteredGroups.length ? (
             <div className="rounded-[28px] border border-line bg-white px-6 py-8 text-sm text-muted shadow-sm">
-              No live rooms are visible yet.
+              No rooms match that search yet.
             </div>
           ) : null}
 
-          {liveGroups.map((group) => {
+          {filteredGroups.map((group) => {
             const membership = getMembership(group, currentUserId);
             const waitlistCount = group.memberships.filter((entry) => entry.status === "waitlist").length;
             const pendingCount = group.memberships.filter((entry) => entry.status === "pending").length;
@@ -199,6 +279,7 @@ export default function ExploreGroupsPage() {
             ).length;
             const activeThreadCount = (group.requests ?? []).filter((request) => request.status === "open").length;
             const slotsFull = activeMemberSlotsUsed >= 4;
+            const tags = groupTags(group);
 
             let action: { href: string; label: string; secondary?: boolean };
 
@@ -247,20 +328,45 @@ export default function ExploreGroupsPage() {
                       </p>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="flex flex-wrap gap-2">
+                      {tags
+                        .filter((tag) => !["Free", "Paid", "Has open seats"].includes(tag))
+                        .slice(0, 3)
+                        .map((tag) => (
+                          <span key={tag} className="rounded-full bg-panel px-3 py-1 text-xs font-medium text-muted">
+                            {tag}
+                          </span>
+                        ))}
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
                       <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">For</p>
-                        <p className="mt-2 text-sm text-foreground">{group.whoFor}</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Best for</p>
+                        <p className="mt-2 text-sm text-foreground">{oneLine(group.whoFor)}</p>
                       </div>
                       <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Not for</p>
-                        <p className="mt-2 text-sm text-foreground">{group.whoNotFor}</p>
-                      </div>
-                      <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">What members get</p>
-                        <p className="mt-2 text-sm text-foreground">{group.valueProp}</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Members get</p>
+                        <p className="mt-2 text-sm text-foreground">{oneLine(group.valueProp)}</p>
                       </div>
                     </div>
+
+                    <details className="rounded-2xl border border-line bg-panel px-4 py-3">
+                      <summary className="cursor-pointer text-sm font-medium text-foreground">Preview full fit</summary>
+                      <div className="mt-4 grid gap-4 md:grid-cols-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">For</p>
+                          <p className="mt-2 text-sm leading-6 text-foreground">{group.whoFor}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Not for</p>
+                          <p className="mt-2 text-sm leading-6 text-foreground">{group.whoNotFor}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">What members get</p>
+                          <p className="mt-2 text-sm leading-6 text-foreground">{group.valueProp}</p>
+                        </div>
+                      </div>
+                    </details>
 
                     <p className="text-sm text-muted">
                       Run by <span className="font-medium text-foreground">{group.owner.name || group.owner.email}</span>
@@ -282,7 +388,7 @@ export default function ExploreGroupsPage() {
                       href={`/groups/${group.id}`}
                       className="inline-flex w-full items-center justify-center rounded-full border border-line bg-white px-4 py-3 text-sm font-medium text-foreground transition hover:border-foreground"
                     >
-                      Preview
+                      Open room preview
                     </Link>
                     {membership?.status === "waitlist" ? (
                       <p className="text-sm text-muted">You are already in the queue for this room.</p>
