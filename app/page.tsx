@@ -378,11 +378,11 @@ export default function Home() {
             <div className="space-y-8">
               <div className="space-y-5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/trust50-logo.png" alt="Trust50" className="h-16 w-16 rounded-2xl object-contain" />
+                <img src="/trust50-logo.png" alt="Trust50" className="h-48 w-48 rounded-[32px] object-contain" />
                 <div className="space-y-3">
                   <h1 className="text-3xl font-semibold tracking-tight">Warm paths to people worth knowing.</h1>
                   <p className="max-w-2xl text-base leading-7 text-muted">
-                    Join private rooms where operators trade useful judgment, warm intros, and earned access.
+                    Join private rooms where trusted peers trade useful judgment, warm intros, and earned access.
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -459,6 +459,14 @@ export default function Home() {
               </div>
             </div>
           </section>
+
+          <footer className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted">
+            <span>Privacy policy</span>
+            <span>Terms</span>
+            <Link href="/how-it-works" className="font-medium transition hover:text-foreground">
+              How it works
+            </Link>
+          </footer>
 
           {flash ? (
             <div className="rounded-2xl border border-line bg-white px-5 py-3 text-sm text-muted shadow-sm">

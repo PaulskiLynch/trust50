@@ -78,14 +78,16 @@ export default function RegisterPage() {
     <main className="min-h-screen bg-background px-6 py-12 text-foreground">
       <div className="mx-auto max-w-2xl space-y-6">
         <div className="flex items-center justify-between gap-4 text-sm text-muted">
-          <p>Create account</p>
+          <span />
           <Link href="/" className="font-medium transition hover:text-foreground">
             Back to sign in
           </Link>
         </div>
 
         <section className="rounded-[28px] border border-line bg-white p-8 shadow-sm">
-          <div className="space-y-3">
+          <div className="space-y-5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/trust50-logo.png" alt="Trust50" className="h-48 w-48 rounded-[32px] object-contain" />
             <h1 className="text-3xl font-semibold tracking-tight">Create your Trust50 account</h1>
             <p className="max-w-2xl text-sm leading-7 text-muted">
               Start with a real profile so you can join rooms, vote on new members, and contribute with context.
@@ -186,6 +188,14 @@ export default function RegisterPage() {
             </div>
           </form>
         </section>
+
+        <footer className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted">
+          <span>Privacy policy</span>
+          <span>Terms</span>
+          <Link href="/how-it-works" className="font-medium transition hover:text-foreground">
+            How it works
+          </Link>
+        </footer>
       </div>
     </main>
   );
