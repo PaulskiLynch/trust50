@@ -308,6 +308,7 @@ export default function GroupDetailPage({ params }: PageProps) {
   );
   const isOwner = group?.ownerId === currentUserId;
   const isActiveMember = currentMembership?.status === "active" || isOwner;
+  const isPreviewOnly = !!group && !isActiveMember;
   const canLeaveRoom = currentMembership?.status === "active" && !isOwner;
   const hasPendingAccess =
     currentMembership?.status === "pending" ||
@@ -741,9 +742,11 @@ export default function GroupDetailPage({ params }: PageProps) {
                       {showLeavePanel ? "Close leave panel" : "Leave room"}
                     </button>
                   ) : null}
-                  <span className="rounded-full bg-stone-100 px-3 py-2 text-xs font-medium text-stone-700">
-                    {group.requests.filter((request) => request.status === "open").length} live signals
-                  </span>
+                  {isActiveMember ? (
+                    <span className="rounded-full bg-stone-100 px-3 py-2 text-xs font-medium text-stone-700">
+                      {group.requests.filter((request) => request.status === "open").length} live signals
+                    </span>
+                  ) : null}
                 </div>
                 {!isActiveMember ? (
                   <p className="mt-4 text-sm text-muted">
@@ -907,28 +910,43 @@ export default function GroupDetailPage({ params }: PageProps) {
                 </div>
               )}
 
-              <div className="mt-5 rounded-2xl border border-line bg-white p-5">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted">At the table</h3>
-                <div className="mt-3 space-y-3">
-                  {!pinnedRequests.filter((request) => request.status === "open").length ? (
-                    <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-4 text-sm text-muted">
-                      Nothing is pinned yet. Once a discussion becomes central to the room, it can live here.
-                    </div>
-                  ) : null}
-                  {pinnedRequests
-                    .filter((request) => request.status === "open")
-                    .slice(0, 2)
-                    .map((request) => (
-                      <div key={`pinned-${request.id}`} className="rounded-2xl border border-line bg-panel px-4 py-3">
-                        <p className="font-medium">{discussionTitle(request)}</p>
-                        <p className="mt-1 text-sm text-muted">
-                          {request.replies.length} repl{request.replies.length === 1 ? "y" : "ies"} · {formatRelativeMoment(request.replies.at(-1)?.createdAt || request.createdAt)}
-                        </p>
+              {isActiveMember ? (
+                <div className="mt-5 rounded-2xl border border-line bg-white p-5">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted">At the table</h3>
+                  <div className="mt-3 space-y-3">
+                    {!pinnedRequests.filter((request) => request.status === "open").length ? (
+                      <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-4 text-sm text-muted">
+                        Nothing is pinned yet. Once a discussion becomes central to the room, it can live here.
                       </div>
-                    ))}
+                    ) : null}
+                    {pinnedRequests
+                      .filter((request) => request.status === "open")
+                      .slice(0, 2)
+                      .map((request) => (
+                        <div key={`pinned-${request.id}`} className="rounded-2xl border border-line bg-panel px-4 py-3">
+                          <p className="font-medium">{discussionTitle(request)}</p>
+                          <p className="mt-1 text-sm text-muted">
+                            {request.replies.length} repl{request.replies.length === 1 ? "y" : "ies"} · {formatRelativeMoment(request.replies.at(-1)?.createdAt || request.createdAt)}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
+              {isPreviewOnly ? (
+                <div className="mt-5 rounded-2xl border border-line bg-white p-5">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted">Room content is private</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    Applications and previews show the room shape, but threads, replies, member identities, and warm-intro paths unlock only after admission.
+                  </p>
+                  {hasPendingAccess ? (
+                    <p className="mt-3 text-sm font-medium text-foreground">Your application is in the queue.</p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {isActiveMember ? (
               <div className="mt-5 space-y-5">
                 <div className="rounded-2xl border border-line bg-white p-5">
                   <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -1011,6 +1029,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                   </div>
                 ) : null}
               </div>
+              ) : null}
             </section>
             <aside className="space-y-6">
               {isFreeRoom ? (
@@ -1091,8 +1110,19 @@ export default function GroupDetailPage({ params }: PageProps) {
 
               <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
                 <h2 className="text-xl font-semibold">At The Table · {activeMembers.length} of 50 seats</h2>
-                <p className="mt-1 text-sm text-muted">Members leaning in with operating context, not generic takes.</p>
+                <p className="mt-1 text-sm text-muted">
+                  {isActiveMember
+                    ? "Members leaning in with operating context, not generic takes."
+                    : "Member identities are private until you are admitted."}
+                </p>
 
+                {isPreviewOnly ? (
+                  <div className="mt-5 rounded-2xl border border-dashed border-line bg-white px-4 py-4 text-sm text-muted">
+                    You can see the room size and criteria now. Names, profiles, and direct paths unlock after vouching.
+                  </div>
+                ) : null}
+
+                {isActiveMember ? (
                 <div className="mt-5 space-y-3">
                   {(showAllMembers ? activeMembers : activeMembers.slice(0, 10)).map((membership) => {
                     const contributionCount = group.requests.reduce((count, request) => {
@@ -1185,6 +1215,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                     </div>
                   ) : null}
                 </div>
+                ) : null}
               </section>
 
               <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
@@ -1204,6 +1235,13 @@ export default function GroupDetailPage({ params }: PageProps) {
                   </Link>
                 ) : null}
 
+                {isPreviewOnly ? (
+                  <div className="mt-5 rounded-2xl border border-dashed border-line bg-white px-4 py-4 text-sm text-muted">
+                    The queue is visible as a count only. Applicant details stay inside the room.
+                  </div>
+                ) : null}
+
+                {isActiveMember ? (
                 <div className="mt-5 space-y-3">
                   {!waitingListMembers.length ? (
                     <p className="text-sm text-muted">
@@ -1245,6 +1283,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                     </div>
                   ) : null}
                 </div>
+                ) : null}
               </section>
             </aside>
           </div>

@@ -39,6 +39,22 @@ export async function GET(_: Request, context: RouteContext) {
     });
   }
 
+  const viewerMembership = group.memberships.find((membership) => membership.userId === session.user.id);
+  const canViewRoomContent = group.ownerId === session.user.id || viewerMembership?.status === MembershipStatus.active;
+
+  if (!canViewRoomContent) {
+    const publicGroup = await getPublicGroupById(id);
+
+    if (!publicGroup) {
+      return NextResponse.json({ error: "Group not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      ...publicGroup,
+      requests: [],
+    });
+  }
+
   return NextResponse.json(group);
 }
 
