@@ -756,6 +756,18 @@ export default function Home() {
             </span>
           )}
         </nav>
+
+        <footer className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 pb-2 text-xs text-muted">
+          <Link href="/how-it-works" className="transition hover:text-foreground">
+            How rooms work
+          </Link>
+          <Link href="/faq" className="transition hover:text-foreground">
+            FAQ
+          </Link>
+          <Link href="/landing" className="transition hover:text-foreground">
+            Landing page
+          </Link>
+        </footer>
       </div>
     </main>
   );

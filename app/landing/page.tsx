@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { GroupStatus } from "@prisma/client";
 import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { ComparisonSection } from "@/components/ComparisonSection";
@@ -64,11 +65,18 @@ function getWaitlistCount(group: Group) {
 }
 
 export default function LandingPage() {
-  const { data: session, status } = useSession();
+  const router = useRouter();
+  const { status } = useSession();
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/");
+    }
+  }, [router, status]);
 
   useEffect(() => {
     void (async () => {
@@ -166,6 +174,16 @@ export default function LandingPage() {
     setFlash("Signed in with test login");
   }
 
+  if (status === "authenticated") {
+    return (
+      <main className="min-h-screen bg-background px-6 py-12 text-foreground">
+        <div className="mx-auto max-w-3xl rounded-[28px] border border-line bg-white p-8 text-sm text-muted shadow-sm">
+          Opening your Wire...
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background px-6 py-10 text-foreground sm:py-14">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -187,7 +205,7 @@ export default function LandingPage() {
         <Hero
           onTestLogin={handleTestLogin}
           isLoggingIn={isLoggingIn || status === "loading"}
-          isSignedIn={Boolean(session?.user)}
+          isSignedIn={false}
         />
 
         {flash ? (

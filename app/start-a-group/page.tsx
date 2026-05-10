@@ -120,8 +120,8 @@ export default function StartAGroupPage() {
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between gap-4 text-sm text-muted">
           <p>{isSignedIn ? "Create a room" : "Start a group"}</p>
-          <Link href="/landing" className="font-medium transition hover:text-foreground">
-            Back to landing page
+          <Link href={isSignedIn ? "/" : "/landing"} className="font-medium transition hover:text-foreground">
+            {isSignedIn ? "Back to Wire" : "Back to landing page"}
           </Link>
         </div>
 

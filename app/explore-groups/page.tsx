@@ -227,8 +227,8 @@ export default function ExploreGroupsPage() {
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4 text-sm text-muted">
           <p>Explore rooms</p>
-          <Link href="/landing" className="font-medium transition hover:text-foreground">
-            Back to landing page
+          <Link href={currentUserId ? "/" : "/landing"} className="font-medium transition hover:text-foreground">
+            {currentUserId ? "Back to Wire" : "Back to landing page"}
           </Link>
         </div>
 
