@@ -84,6 +84,21 @@ export default function ApplyPage({ params }: PageProps) {
     currentMembership?.status === "pending" ||
     currentMembership?.status === "waitlist" ||
     currentMembership?.status === "invited";
+  const fitLength = fitWhy.trim().length;
+  const contributionLength = contributionWhy.trim().length;
+  const contextLength = relevantContext.trim().length;
+  const fitRemaining = Math.max(0, MIN_FIT_LENGTH - fitLength);
+  const contributionRemaining = Math.max(0, MIN_CONTRIBUTION_LENGTH - contributionLength);
+  const contextRemaining = Math.max(0, MIN_CONTEXT_LENGTH - contextLength);
+  const canSubmit = fitRemaining === 0 && contributionRemaining === 0 && contextRemaining === 0;
+  const submitHelp =
+    fitRemaining > 0
+      ? `Add ${fitRemaining} more character${fitRemaining === 1 ? "" : "s"} to fit`
+      : contributionRemaining > 0
+        ? `Add ${contributionRemaining} more character${contributionRemaining === 1 ? "" : "s"} to contribution`
+        : contextRemaining > 0
+          ? `Add ${contextRemaining} more character${contextRemaining === 1 ? "" : "s"} to context`
+          : "Ready to submit";
 
   async function handleApply() {
     if (!group) return;
@@ -263,7 +278,9 @@ export default function ApplyPage({ params }: PageProps) {
                   onChange={(event) => setFitWhy(event.target.value)}
                   placeholder="Share the stage, problems, or perspective that make this room relevant to you."
                 />
-                <p className="text-xs text-muted">{fitWhy.trim().length}/{MIN_FIT_LENGTH}+ characters</p>
+                <p className={`text-xs ${fitRemaining ? "text-red-700" : "text-muted"}`}>
+                  {fitLength}/{MIN_FIT_LENGTH}+ characters{fitRemaining ? ` / add ${fitRemaining} more` : ""}
+                </p>
               </label>
 
               <label className="block space-y-2">
@@ -274,7 +291,9 @@ export default function ApplyPage({ params }: PageProps) {
                   onChange={(event) => setContributionWhy(event.target.value)}
                   placeholder="What kind of context, experience, or decision support would people here get from you?"
                 />
-                <p className="text-xs text-muted">{contributionWhy.trim().length}/{MIN_CONTRIBUTION_LENGTH}+ characters</p>
+                <p className={`text-xs ${contributionRemaining ? "text-red-700" : "text-muted"}`}>
+                  {contributionLength}/{MIN_CONTRIBUTION_LENGTH}+ characters{contributionRemaining ? ` / add ${contributionRemaining} more` : ""}
+                </p>
               </label>
 
               <label className="block space-y-2">
@@ -285,17 +304,19 @@ export default function ApplyPage({ params }: PageProps) {
                   onChange={(event) => setRelevantContext(event.target.value)}
                   placeholder="Current role, company stage, market, or the kind of decisions you are working through."
                 />
-                <p className="text-xs text-muted">{relevantContext.trim().length}/{MIN_CONTEXT_LENGTH}+ characters</p>
+                <p className={`text-xs ${contextRemaining ? "text-red-700" : "text-muted"}`}>
+                  {contextLength}/{MIN_CONTEXT_LENGTH}+ characters{contextRemaining ? ` / add ${contextRemaining} more` : ""}
+                </p>
               </label>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={() => void handleApply()}
                   disabled={!currentUserId || submitting}
                   className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {submitting ? "Submitting..." : "Submit application"}
+                  {submitting ? "Submitting..." : canSubmit ? "Submit application" : "Check application"}
                 </button>
                 <Link
                   href={groupId ? `/groups/${groupId}` : "/"}
@@ -303,6 +324,9 @@ export default function ApplyPage({ params }: PageProps) {
                 >
                   Cancel
                 </Link>
+                {!canSubmit ? (
+                  <p className="text-sm text-muted">{submitHelp}.</p>
+                ) : null}
               </div>
                 </>
               ) : null}
