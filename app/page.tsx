@@ -110,6 +110,27 @@ const sampleMediaUrls = [
   "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80",
 ];
 
+const emptyWirePreviews = [
+  {
+    room: "AI Operators",
+    person: "Maya",
+    title: "How are you deciding where AI should stay human-in-the-loop?",
+    meta: "4 comments today",
+  },
+  {
+    room: "Founder Circle",
+    person: "Sara",
+    title: "First senior hire: did you wait for pain or hire ahead of it?",
+    meta: "2 members you may know",
+  },
+  {
+    room: "Property Ops",
+    person: "Olivia",
+    title: "Concessions or hold rate when renewal demand is soft?",
+    meta: "Fast replies recently",
+  },
+];
+
 function getSampleMediaUrl(groupName: string, requestId: string) {
   const key = `${groupName}-${requestId}`;
   const index = [...key].reduce((total, char) => total + char.charCodeAt(0), 0) % sampleMediaUrls.length;
@@ -320,6 +341,8 @@ export default function Home() {
       helpfulRepliesCount: currentProfile.credibility.helpfulRepliesCount,
     };
   }, [currentProfile]);
+
+  const hasNoRooms = !loading && !prioritizedGroups.length;
 
   async function handleTestLogin() {
     setFlash(null);
@@ -562,33 +585,46 @@ export default function Home() {
           </div>
         ) : null}
 
-        {!loading && !prioritizedGroups.length ? (
-          <section className="rounded-[20px] border border-line bg-white p-5 shadow-sm">
-            <p className="font-medium text-foreground">You are not in any rooms yet.</p>
-            <p className="mt-1 text-sm text-muted">Join a room and your Wire will appear here.</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                href="/explore-groups"
-                className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-              >
-                Browse rooms
-              </Link>
-              <Link
-                href="/start-a-group"
-                className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
-              >
-                Start a room
-              </Link>
-            </div>
-          </section>
-        ) : null}
-
         <section className="overflow-hidden rounded-[20px] border border-line bg-white shadow-sm">
-          {!feedItems.length ? (
+          {hasNoRooms ? (
+            <div className="px-5 py-6">
+              <p className="text-lg font-semibold text-foreground">Your Wire is empty</p>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Join a room to start seeing operator questions, warm introductions, hiring decisions, and trusted requests for judgment.
+              </p>
+              <div className="mt-5 space-y-3">
+                {emptyWirePreviews.map((preview) => (
+                  <div key={preview.title} className="rounded-2xl border border-line bg-panel/70 px-4 py-3 opacity-75 blur-[0.2px]">
+                    <div className="flex items-center gap-2 text-xs font-medium text-muted">
+                      <span>{preview.room}</span>
+                      <span>/</span>
+                      <span>{preview.person}</span>
+                    </div>
+                    <p className="mt-2 text-sm font-medium leading-5 text-foreground">&ldquo;{preview.title}&rdquo;</p>
+                    <p className="mt-1 text-xs text-muted">{preview.meta}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link
+                  href="/explore-groups"
+                  className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                >
+                  Find a room where you can add value
+                </Link>
+                <Link
+                  href="/start-a-group"
+                  className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                >
+                  Start a room
+                </Link>
+              </div>
+            </div>
+          ) : !feedItems.length ? (
             <div className="px-5 py-8">
-              <p className="font-medium text-foreground">Build your profile so rooms can understand your fit.</p>
+              <p className="font-medium text-foreground">Nothing needs you right now.</p>
               <p className="mt-1 text-sm text-muted">
-                Your profile is how rooms decide whether you&apos;re a strong fit. Add a few details about your experience, what you can help with, and what you&apos;re working on.
+                Build your profile so curators can understand where you can contribute, or browse rooms with live discussions.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 {currentUser ? (

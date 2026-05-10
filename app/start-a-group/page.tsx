@@ -25,6 +25,7 @@ export default function StartAGroupPage() {
   const [valueProp, setValueProp] = useState("");
   const [pricingMode, setPricingMode] = useState<"free" | "paid">("free");
   const [monthlyPrice, setMonthlyPrice] = useState("50");
+  const [creationStep, setCreationStep] = useState(1);
   const [flash, setFlash] = useState<string | null>(null);
   const [isSubmittingInterest, setIsSubmittingInterest] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -62,6 +63,25 @@ export default function StartAGroupPage() {
   async function handleCreateGroup(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFlash(null);
+
+    if (!groupName.trim()) {
+      setCreationStep(1);
+      setFlash("Add a room name first.");
+      return;
+    }
+
+    if (!description.trim()) {
+      setCreationStep(2);
+      setFlash("Describe the decisions this room helps with.");
+      return;
+    }
+
+    if (!whoFor.trim()) {
+      setCreationStep(3);
+      setFlash("Add who belongs in this room.");
+      return;
+    }
+
     setIsCreatingGroup(true);
 
     try {
@@ -75,8 +95,8 @@ export default function StartAGroupPage() {
           name: groupName,
           description,
           who_for: whoFor,
-          who_not_for: whoNotFor,
-          value_prop: valueProp,
+          who_not_for: whoNotFor || "People looking for broad networking, passive lurking, or generic beginner advice.",
+          value_prop: valueProp || `Specific help with the decisions this room exists to handle: ${description || groupName}.`,
           price,
         }),
       });
@@ -109,115 +129,159 @@ export default function StartAGroupPage() {
           <section className="rounded-[28px] border border-line bg-white p-8 shadow-sm">
             <h1 className="text-3xl font-semibold tracking-tight">Create your first room</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">
-              Start with a clear room idea, invite a few strong members, and let the room earn its
-              shape from real discussions.
+              Start with the decision people help each other make. Trust50 can infer the rest as the room earns its shape from real discussions.
             </p>
 
             <form onSubmit={handleCreateGroup} className="mt-8 space-y-4">
-              <label className="space-y-2 text-sm text-muted">
-                <span className="block">Room name</span>
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(event) => setGroupName(event.target.value)}
-                  className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                  placeholder="Digital pharma executives"
-                  maxLength={80}
-                  required
-                />
-              </label>
+              <div className="flex gap-2">
+                {[1, 2, 3].map((step) => (
+                  <span
+                    key={step}
+                    className={`h-2 flex-1 rounded-full transition ${creationStep === step ? "bg-foreground" : "bg-line"}`}
+                  />
+                ))}
+              </div>
 
-              <label className="space-y-2 text-sm text-muted">
-                <span className="block">What is the room for?</span>
-                <textarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  className="min-h-28 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                  placeholder="A private room for senior leaders working through AI adoption, operating model decisions, and difficult team tradeoffs."
-                  maxLength={500}
-                />
-              </label>
-
-              <label className="space-y-2 text-sm text-muted">
-                <span className="block">Who is it for?</span>
-                <textarea
-                  value={whoFor}
-                  onChange={(event) => setWhoFor(event.target.value)}
-                  className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                  placeholder="Founders, operators, or specialists with shared context and real decisions to make."
-                  maxLength={400}
-                  required
-                />
-              </label>
-
-              <label className="space-y-2 text-sm text-muted">
-                <span className="block">Who is it not for?</span>
-                <textarea
-                  value={whoNotFor}
-                  onChange={(event) => setWhoNotFor(event.target.value)}
-                  className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                  placeholder="People looking for broad networking, beginner advice, or passive lurking."
-                  maxLength={400}
-                  required
-                />
-              </label>
-
-              <label className="space-y-2 text-sm text-muted">
-                <span className="block">What should members get from it?</span>
-                <textarea
-                  value={valueProp}
-                  onChange={(event) => setValueProp(event.target.value)}
-                  className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                  placeholder="Faster decisions, sharper operator context, and direct access to people who have already handled similar tradeoffs."
-                  maxLength={400}
-                  required
-                />
-              </label>
-
-              <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                <p className="text-sm font-medium text-foreground">Pricing</p>
-                <p className="mt-1 text-sm text-muted">
-                  Start free if you want to prove the room first, or set a monthly price now.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPricingMode("free")}
-                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                      pricingMode === "free"
-                        ? "border-foreground bg-foreground text-white"
-                        : "border-line bg-white text-foreground hover:border-foreground"
-                    }`}
-                  >
-                    Free room
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPricingMode("paid")}
-                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                      pricingMode === "paid"
-                        ? "border-foreground bg-foreground text-white"
-                        : "border-line bg-white text-foreground hover:border-foreground"
-                    }`}
-                  >
-                    Paid room
-                  </button>
-                </div>
-
-                {pricingMode === "paid" ? (
-                  <label className="mt-4 block space-y-2 text-sm text-muted">
-                    <span className="block">Monthly price per member (EUR)</span>
+              {creationStep === 1 ? (
+                <section className="space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 1</p>
+                    <h2 className="mt-2 text-xl font-semibold">Name the table</h2>
+                  </div>
+                  <label className="space-y-2 text-sm text-muted">
+                    <span className="block">Room name</span>
                     <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      value={monthlyPrice}
-                      onChange={(event) => setMonthlyPrice(event.target.value)}
+                      type="text"
+                      value={groupName}
+                      onChange={(event) => setGroupName(event.target.value)}
                       className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                      placeholder="Digital pharma executives"
+                      maxLength={80}
+                      required
                     />
                   </label>
-                ) : null}
-              </div>
+                  <p className="rounded-2xl bg-panel px-4 py-3 text-sm text-muted">
+                    Example: Seed-stage fintech founders navigating fundraising and first senior hires.
+                  </p>
+                </section>
+              ) : null}
+
+              {creationStep === 2 ? (
+                <section className="space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 2</p>
+                    <h2 className="mt-2 text-xl font-semibold">Describe the decisions</h2>
+                  </div>
+                  <label className="space-y-2 text-sm text-muted">
+                    <span className="block">What kinds of decisions should members help each other make?</span>
+                    <textarea
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                      className="min-h-32 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                      placeholder="AI adoption, operating model decisions, senior hiring, and board-level tradeoffs inside regulated pharma teams."
+                      maxLength={500}
+                      required
+                    />
+                  </label>
+                  <p className="rounded-2xl bg-panel px-4 py-3 text-sm text-muted">
+                    Good rooms are specific enough that members instantly know what kind of help belongs there.
+                  </p>
+                </section>
+              ) : null}
+
+              {creationStep === 3 ? (
+                <section className="space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 3</p>
+                    <h2 className="mt-2 text-xl font-semibold">Who belongs here?</h2>
+                  </div>
+                  <label className="space-y-2 text-sm text-muted">
+                    <span className="block">Who is it for?</span>
+                    <textarea
+                      value={whoFor}
+                      onChange={(event) => setWhoFor(event.target.value)}
+                      className="min-h-28 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                      placeholder="Senior pharma, biotech, and health AI operators with direct responsibility for digital transformation decisions."
+                      maxLength={400}
+                      required
+                    />
+                  </label>
+
+                  <details className="rounded-2xl bg-panel px-4 py-3">
+                    <summary className="cursor-pointer text-sm font-medium text-foreground">Optional: tune the room draft</summary>
+                    <div className="mt-4 space-y-4">
+                      <label className="space-y-2 text-sm text-muted">
+                        <span className="block">Who is it not for?</span>
+                        <textarea
+                          value={whoNotFor}
+                          onChange={(event) => setWhoNotFor(event.target.value)}
+                          className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                          placeholder="People looking for broad networking, beginner advice, or passive lurking."
+                          maxLength={400}
+                        />
+                      </label>
+
+                      <label className="space-y-2 text-sm text-muted">
+                        <span className="block">What kinds of help should people expect here?</span>
+                        <textarea
+                          value={valueProp}
+                          onChange={(event) => setValueProp(event.target.value)}
+                          className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                          placeholder="Faster decisions, sharper operator context, and direct access to people who have already handled similar tradeoffs."
+                          maxLength={400}
+                        />
+                      </label>
+                    </div>
+                  </details>
+                </section>
+              ) : null}
+
+              {creationStep === 3 ? (
+                <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                  <p className="text-sm font-medium text-foreground">Room access</p>
+                  <p className="mt-1 text-sm text-muted">
+                    Most new rooms start free while the founding members prove the signal.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPricingMode("free")}
+                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                        pricingMode === "free"
+                          ? "border-foreground bg-foreground text-white"
+                          : "border-line bg-white text-foreground hover:border-foreground"
+                      }`}
+                    >
+                      Free room
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPricingMode("paid")}
+                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                        pricingMode === "paid"
+                          ? "border-foreground bg-foreground text-white"
+                          : "border-line bg-white text-foreground hover:border-foreground"
+                      }`}
+                    >
+                      Paid room
+                    </button>
+                  </div>
+
+                  {pricingMode === "paid" ? (
+                    <label className="mt-4 block space-y-2 text-sm text-muted">
+                      <span className="block">Monthly price per member (EUR)</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={300}
+                        value={monthlyPrice}
+                        onChange={(event) => setMonthlyPrice(event.target.value)}
+                        className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+              ) : null}
 
               {flash ? (
                 <div className="rounded-2xl border border-line bg-panel px-4 py-3 text-sm text-muted">
@@ -226,13 +290,32 @@ export default function StartAGroupPage() {
               ) : null}
 
               <div className="flex flex-wrap gap-3">
-                <button
-                  type="submit"
-                  disabled={isCreatingGroup || status === "loading"}
-                  className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isCreatingGroup || status === "loading" ? "Creating..." : "Create room"}
-                </button>
+                {creationStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCreationStep((step) => Math.max(1, step - 1))}
+                    className="rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground"
+                  >
+                    Back
+                  </button>
+                ) : null}
+                {creationStep < 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCreationStep((step) => Math.min(3, step + 1))}
+                    className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    Continue
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isCreatingGroup || status === "loading"}
+                    className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isCreatingGroup || status === "loading" ? "Creating..." : "Create room"}
+                  </button>
+                )}
                 <Link
                   href="/how-it-works"
                   className="rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground"

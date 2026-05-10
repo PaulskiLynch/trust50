@@ -80,21 +80,32 @@ export default async function MemberProfilePage({ params }: PageProps) {
             <ProfileBuilder profile={profile} />
 
             <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold">Your reputation</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-line bg-panel px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Trust level</p>
-                  <p className="mt-2 text-sm font-medium text-foreground">{profile.credibility.trustLevel}</p>
-                </div>
-                <div className="rounded-2xl border border-line bg-panel px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Helpful replies</p>
-                  <p className="mt-2 text-sm font-medium text-foreground">{profile.credibility.helpfulRepliesCount}</p>
-                </div>
-                <div className="rounded-2xl border border-line bg-panel px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Known for</p>
-                  <p className="mt-2 text-sm font-medium text-foreground">
-                    {profile.credibility.knownFor[0] || "Getting established"}
+              <h2 className="text-xl font-semibold">Reputation</h2>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Built through thoughtful replies, successful introductions, accurate judgment, and sponsorships that worked out.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl bg-panel px-4 py-3">
+                  <p className="text-sm font-medium text-foreground">
+                    {profile.credibility.helpfulRepliesCount} helpful {profile.credibility.helpfulRepliesCount === 1 ? "reply" : "replies"}
                   </p>
+                  <p className="mt-1 text-xs text-muted">Recent answers other members could use.</p>
+                </div>
+                <div className="rounded-2xl bg-panel px-4 py-3">
+                  <p className="text-sm font-medium text-foreground">{profile.credibility.trustLevel} trust level</p>
+                  <p className="mt-1 text-xs text-muted">Earned from visible participation.</p>
+                </div>
+                <div className="rounded-2xl bg-panel px-4 py-3">
+                  <p className="text-sm font-medium text-foreground">
+                    {profile.activeGroups[0] ? `Active in ${profile.activeGroups[0].name}` : "Ready for a first room"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">Where your context is visible.</p>
+                </div>
+                <div className="rounded-2xl bg-panel px-4 py-3">
+                  <p className="text-sm font-medium text-foreground">
+                    {(profile.credibility.knownFor[0] || profile.stageIndustry || profile.role || "Practical judgment").replace("Getting established", "Practical judgment")}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">What members are starting to associate with you.</p>
                 </div>
               </div>
             </section>
