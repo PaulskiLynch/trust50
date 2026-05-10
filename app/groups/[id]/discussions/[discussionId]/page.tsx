@@ -40,6 +40,7 @@ type Discussion = {
   id: string;
   title?: string | null;
   content: string;
+  mediaUrl?: string | null;
   kind: "request" | "question" | "insight" | "update";
   status: string;
   outcome?: string | null;
@@ -320,6 +321,14 @@ export default function DiscussionPage({ params }: PageProps) {
                 ) : null}
                 <h1 className="mt-3 text-3xl font-semibold tracking-tight">{discussionTitle(discussion)}</h1>
                 <p className="mt-3 text-base leading-7 text-foreground">{discussion.content}</p>
+                {discussion.mediaUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={discussion.mediaUrl}
+                    alt=""
+                    className="mt-5 aspect-[16/9] w-full rounded-2xl border border-line object-cover"
+                  />
+                ) : null}
                 <p className="mt-3 text-sm text-muted">Started {formatRelativeMoment(discussion.createdAt)} in {discussion.group.name}</p>
               </div>
 

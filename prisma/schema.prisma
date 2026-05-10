@@ -151,6 +151,7 @@ model Request {
   id            String         @id @default(cuid())
   title         String?
   content       String
+  mediaUrl      String?
   kind          DiscussionKind @default(request)
   creatorId     String
   groupId       String

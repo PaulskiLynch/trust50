@@ -9,6 +9,10 @@ const createRequestSchema = z.object({
   groupId: z.string().min(1, "Group is required"),
   title: z.string().min(1, "Discussion title is required"),
   content: z.string().min(1, "Request content is required"),
+  mediaUrl: z.preprocess(
+    (value) => (typeof value === "string" ? value.trim() : value),
+    z.string().url("Use a valid image URL").optional().or(z.literal("")),
+  ),
   kind: z.nativeEnum(DiscussionKind).optional().default(DiscussionKind.request),
 });
 
@@ -42,6 +46,7 @@ export async function POST(req: Request) {
       data: {
         content: payload.content,
         title: payload.title,
+        mediaUrl: payload.mediaUrl || null,
         kind: payload.kind,
         creatorId: session.user.id,
         groupId: payload.groupId,

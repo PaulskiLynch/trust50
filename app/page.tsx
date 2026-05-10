@@ -37,6 +37,7 @@ type Request = {
   id: string;
   title?: string | null;
   content: string;
+  mediaUrl?: string | null;
   status: string;
   createdAt: string;
   creatorId: string;
@@ -69,6 +70,7 @@ type FeedItem = {
   question: string;
   preview: string;
   socialProof: string;
+  mediaUrl?: string | null;
   kind: "question" | "vouch";
   candidateCount?: number;
   timestamp: number;
@@ -228,6 +230,7 @@ export default function Home() {
             question: discussionTitle(request),
             preview: shortenText(request.content, 150),
             socialProof: replyCountLabel(request.replies.length),
+            mediaUrl: request.mediaUrl ?? null,
             kind: "question",
             timestamp: lastActivity,
           });
@@ -252,6 +255,7 @@ export default function Home() {
         question: `${candidateCount} candidate${candidateCount === 1 ? "" : "s"} need room vouches`,
         preview: "The room needs a quick read on who belongs at the table.",
         socialProof: `${candidateCount} waiting`,
+        mediaUrl: null,
         kind: "vouch" as const,
         candidateCount,
         timestamp: Date.now(),
@@ -417,9 +421,13 @@ export default function Home() {
     <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10">
       <div className="mx-auto max-w-2xl">
         <header className="mb-5 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Trust50</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">For you</h1>
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/trust50-logo.png" alt="Trust50" className="h-9 w-9 rounded-xl object-contain" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Trust50</p>
+              <h1 className="mt-0.5 text-sm font-medium text-muted">For you</h1>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Link
@@ -508,6 +516,14 @@ export default function Home() {
                   <p className="mt-2 text-sm leading-6 text-muted">
                     {item.memberName}: &ldquo;{item.preview}&rdquo;
                   </p>
+                  {item.mediaUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.mediaUrl}
+                      alt=""
+                      className="mt-3 aspect-[16/9] w-full rounded-2xl border border-line object-cover"
+                    />
+                  ) : null}
                   <p className="mt-2 text-xs font-medium text-muted">{item.socialProof}</p>
                 </Link>
               </div>

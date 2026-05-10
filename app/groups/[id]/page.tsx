@@ -65,6 +65,7 @@ type GroupRequest = {
   id: string;
   title?: string | null;
   content: string;
+  mediaUrl?: string | null;
   kind: "request" | "question" | "insight" | "update";
   creatorId: string;
   groupId: string;
@@ -257,6 +258,7 @@ export default function GroupDetailPage({ params }: PageProps) {
   const [flash, setFlash] = useState<string | null>(null);
   const [requestTitle, setRequestTitle] = useState("");
   const [requestContent, setRequestContent] = useState("");
+  const [requestMediaUrl, setRequestMediaUrl] = useState("");
   const [requestKind, setRequestKind] = useState<GroupRequest["kind"]>("request");
   const [isPostingRequest, setIsPostingRequest] = useState(false);
   const [showAllMembers, setShowAllMembers] = useState(false);
@@ -481,6 +483,7 @@ export default function GroupDetailPage({ params }: PageProps) {
           groupId: group.id,
           title: requestTitle.trim(),
           content: requestContent.trim(),
+          mediaUrl: requestMediaUrl.trim(),
           kind: requestKind,
         }),
       });
@@ -493,6 +496,7 @@ export default function GroupDetailPage({ params }: PageProps) {
 
       setRequestTitle("");
       setRequestContent("");
+      setRequestMediaUrl("");
       setRequestKind("request");
       setFlash("Discussion posted");
       await load();
@@ -614,6 +618,14 @@ export default function GroupDetailPage({ params }: PageProps) {
               <p className="text-[15px] font-medium leading-6 text-foreground">{discussionTitle(request)}</p>
               {previewFirstTwo && index < 2 ? (
                 <p className="mt-1 text-sm leading-6 text-muted">{getDiscussionPreview(request)}</p>
+              ) : null}
+              {request.mediaUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={request.mediaUrl}
+                  alt=""
+                  className="mt-3 aspect-[16/9] w-full rounded-2xl border border-line object-cover"
+                />
               ) : null}
               <p className="mt-1.5 text-sm text-muted">
                 {replyLabel} · {statusLabel} · {formatRelativeMoment(lastActivity).replace("Last activity ", "")}
@@ -863,6 +875,17 @@ export default function GroupDetailPage({ params }: PageProps) {
                       onChange={(event) => setRequestContent(event.target.value)}
                       placeholder={selectedDiscussionType.bodyExample}
                     />
+                    <label className="block space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+                        Image URL
+                      </span>
+                      <input
+                        className="w-full rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
+                        value={requestMediaUrl}
+                        onChange={(event) => setRequestMediaUrl(event.target.value)}
+                        placeholder="Optional image, chart, screenshot, or room context"
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={() => void handleCreateRequest()}
