@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  SAMPLE_ROOM_TAXONOMY,
+  fallbackRoomTaxonomy,
+  taxonomyFilterLabels,
+  taxonomySearchText,
+} from "@/lib/taxonomy";
+
 type User = {
   id: string;
   name: string | null;
@@ -42,27 +49,22 @@ type Group = {
 
 const filterChips = [
   "All",
-  "Founder/operator",
-  "Pharma/health",
-  "Creative",
-  "Local",
-  "Investing",
-  "Professional services",
+  ...taxonomyFilterLabels(),
   "Free",
   "Paid",
   "Has open seats",
 ];
 
 const roomTagMap: Record<string, string[]> = {
-  "group-founders": ["Founder/operator", "Local"],
-  "group-operators": ["Founder/operator", "Professional services"],
-  "group-women-pharma": ["Pharma/health", "Professional services"],
-  "group-digital-pharma": ["Pharma/health", "Professional services"],
-  "group-health-ai": ["Pharma/health", "Founder/operator"],
-  "group-property-management": ["Professional services", "Local"],
+  "group-founders": ["Professional", "Startups"],
+  "group-operators": ["Professional", "Operators"],
+  "group-women-pharma": ["Professional", "Healthcare"],
+  "group-digital-pharma": ["Professional", "Healthcare"],
+  "group-health-ai": ["Learning", "AI Skills"],
+  "group-property-management": ["Professional", "Real Estate"],
   "group-investments": ["Investing"],
-  "group-dog-training": ["Professional services", "Creative"],
-  "group-music-production": ["Creative"],
+  "group-dog-training": ["Pursuits", "Creative Practice"],
+  "group-music-production": ["Pursuits", "Creative Practice"],
 };
 
 const searchAliases: Record<string, string[]> = {
@@ -96,6 +98,10 @@ function getMembership(group: Group, userId: string | null) {
 function oneLine(value: string, limit = 96) {
   const compact = value.replace(/\s+/g, " ").trim();
   return compact.length > limit ? `${compact.slice(0, limit - 3)}...` : compact;
+}
+
+function getRoomTaxonomy(group: Group) {
+  return SAMPLE_ROOM_TAXONOMY[group.id] ?? fallbackRoomTaxonomy(`${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`);
 }
 
 function recentAsks(group: Group) {
@@ -140,8 +146,11 @@ function fitSignal(group: Group, tags: string[], activeFilter: string, query: st
 function groupTags(group: Group) {
   const text = `${group.id} ${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`.toLowerCase();
   const tags = new Set<string>();
+  const taxonomy = getRoomTaxonomy(group);
 
   roomTagMap[group.id]?.forEach((tag) => tags.add(tag));
+  tags.add(taxonomy.domain);
+  tags.add(taxonomy.category);
 
   if (text.match(/founder|operator|startup|series|product|hiring|growth/)) tags.add("Founder/operator");
   if (text.match(/pharma|health|clinical|medical|biotech|ai/)) tags.add("Pharma/health");
@@ -215,7 +224,8 @@ export default function ExploreGroupsPage() {
       const tags = groupTags(group);
       const matchesFilter = activeFilter === "All" || tags.includes(activeFilter);
       const aliases = searchAliases[group.id]?.join(" ") || "";
-      const haystack = `${group.id} ${group.name} ${group.owner.name || ""} ${group.owner.email} ${group.description || ""} ${group.whoFor} ${group.whoNotFor} ${group.valueProp} ${tags.join(" ")} ${aliases}`.toLowerCase();
+      const taxonomy = getRoomTaxonomy(group);
+      const haystack = `${group.id} ${group.name} ${group.owner.name || ""} ${group.owner.email} ${group.description || ""} ${group.whoFor} ${group.whoNotFor} ${group.valueProp} ${tags.join(" ")} ${taxonomySearchText(taxonomy)} ${aliases}`.toLowerCase();
       const matchesQuery = !normalizedQuery || haystack.includes(normalizedQuery);
 
       return matchesFilter && matchesQuery;
@@ -327,6 +337,7 @@ export default function ExploreGroupsPage() {
             const activeThreadCount = (group.requests ?? []).filter((request) => request.status === "open").length;
             const slotsFull = activeMemberSlotsUsed >= 4;
             const tags = groupTags(group);
+            const taxonomy = getRoomTaxonomy(group);
             const waitingCount = waitlistCount + pendingCount;
             const difficultySignal = waitlistCount || pendingCount ? `${waitlistCount + pendingCount} waiting` : "Open seats";
             const activitySignal =
@@ -371,6 +382,9 @@ export default function ExploreGroupsPage() {
                       <p className="text-sm leading-7 text-muted">
                         {group.description || "A private room built around high-context professional decisions."}
                       </p>
+                      <p className="text-xs font-medium text-muted">
+                        {taxonomy.domain} / {taxonomy.category} / {taxonomy.specialty}
+                      </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
@@ -383,6 +397,9 @@ export default function ExploreGroupsPage() {
 
                     <p className="text-sm leading-7 text-foreground">
                       <span className="font-medium">Best for:</span> {oneLine(group.whoFor, 140)}
+                    </p>
+                    <p className="text-sm leading-6 text-muted">
+                      Trust test: {taxonomy.trustTest}
                     </p>
 
                     <div className="grid gap-4 border-y border-line py-4 md:grid-cols-[1fr_1.2fr]">

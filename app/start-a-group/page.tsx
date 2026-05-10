@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { ENTRY_RULES, TRUST_TAXONOMY, TAXONOMY_RULE, getTaxonomyNode, type TrustDomain } from "@/lib/taxonomy";
+
 type CreateGroupResponse = {
   id: string;
   error?: string;
@@ -18,6 +20,10 @@ export default function StartAGroupPage() {
   const [source, setSource] = useState("A new room idea");
   const [signal, setSignal] = useState("");
   const [note, setNote] = useState("");
+  const [domain, setDomain] = useState<TrustDomain>("Professional");
+  const [category, setCategory] = useState("Startups");
+  const [specialty, setSpecialty] = useState("");
+  const [entryRule, setEntryRule] = useState<(typeof ENTRY_RULES)[number]>("Member vouch required");
   const [groupName, setGroupName] = useState("");
   const [description, setDescription] = useState("");
   const [whoFor, setWhoFor] = useState("");
@@ -31,6 +37,7 @@ export default function StartAGroupPage() {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   const isSignedIn = !!session?.user?.id;
+  const selectedTaxonomy = getTaxonomyNode(domain);
 
   async function handleInterestSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,20 +71,32 @@ export default function StartAGroupPage() {
     event.preventDefault();
     setFlash(null);
 
-    if (!groupName.trim()) {
+    if (!category.trim()) {
       setCreationStep(1);
-      setFlash("Add a room name first.");
+      setFlash("Choose the category this room belongs to.");
+      return;
+    }
+
+    if (!specialty.trim()) {
+      setCreationStep(2);
+      setFlash("Add a specialty so members know why this room needs trust.");
+      return;
+    }
+
+    if (!groupName.trim()) {
+      setCreationStep(2);
+      setFlash("Add a room name.");
       return;
     }
 
     if (!description.trim()) {
-      setCreationStep(2);
+      setCreationStep(3);
       setFlash("Describe the decisions this room helps with.");
       return;
     }
 
     if (!whoFor.trim()) {
-      setCreationStep(3);
+      setCreationStep(4);
       setFlash("Add who belongs in this room.");
       return;
     }
@@ -93,10 +112,10 @@ export default function StartAGroupPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: groupName,
-          description,
+          description: `${description}\n\nTaxonomy: ${domain} / ${category} / ${specialty}.\nEntry: ${entryRule}.`,
           who_for: whoFor,
-          who_not_for: whoNotFor || "People looking for broad networking, passive lurking, or generic beginner advice.",
-          value_prop: valueProp || `Specific help with the decisions this room exists to handle: ${description || groupName}.`,
+          who_not_for: whoNotFor || "People looking for open enrollment, broad networking, passive lurking, or generic beginner advice.",
+          value_prop: valueProp || `Specific help with the decisions this room exists to handle: ${description || groupName}. Entry is ${entryRule.toLowerCase()}.`,
           price,
         }),
       });
@@ -134,7 +153,7 @@ export default function StartAGroupPage() {
 
             <form onSubmit={handleCreateGroup} className="mt-8 space-y-4">
               <div className="flex gap-2">
-                {[1, 2, 3].map((step) => (
+                {[1, 2, 3, 4].map((step) => (
                   <span
                     key={step}
                     className={`h-2 flex-1 rounded-full transition ${creationStep === step ? "bg-foreground" : "bg-line"}`}
@@ -146,8 +165,65 @@ export default function StartAGroupPage() {
                 <section className="space-y-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 1</p>
+                    <h2 className="mt-2 text-xl font-semibold">Choose the trust domain</h2>
+                  </div>
+                  <p className="rounded-2xl bg-panel px-4 py-3 text-sm text-muted">{TAXONOMY_RULE}</p>
+                  <label className="space-y-2 text-sm text-muted">
+                    <span className="block">Domain</span>
+                    <select
+                      value={domain}
+                      onChange={(event) => {
+                        const nextDomain = event.target.value as TrustDomain;
+                        setDomain(nextDomain);
+                        setCategory(getTaxonomyNode(nextDomain).categories[0]);
+                      }}
+                      className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                    >
+                      {TRUST_TAXONOMY.map((node) => (
+                        <option key={node.domain} value={node.domain}>
+                          {node.domain}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-2 text-sm text-muted">
+                    <span className="block">Category</span>
+                    <select
+                      value={category}
+                      onChange={(event) => setCategory(event.target.value)}
+                      className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                    >
+                      {selectedTaxonomy.categories.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="rounded-2xl bg-panel px-4 py-3 text-sm text-muted">
+                    Trust test: <span className="font-medium text-foreground">{selectedTaxonomy.trustTest}</span>
+                  </div>
+                </section>
+              ) : null}
+
+              {creationStep === 2 ? (
+                <section className="space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 2</p>
                     <h2 className="mt-2 text-xl font-semibold">Name the table</h2>
                   </div>
+                  <label className="space-y-2 text-sm text-muted">
+                    <span className="block">Specialty</span>
+                    <input
+                      type="text"
+                      value={specialty}
+                      onChange={(event) => setSpecialty(event.target.value)}
+                      className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                      placeholder="Seed-stage fintech founders navigating fundraising and senior hiring"
+                      maxLength={140}
+                      required
+                    />
+                  </label>
                   <label className="space-y-2 text-sm text-muted">
                     <span className="block">Room name</span>
                     <input
@@ -161,15 +237,15 @@ export default function StartAGroupPage() {
                     />
                   </label>
                   <p className="rounded-2xl bg-panel px-4 py-3 text-sm text-muted">
-                    Example: Seed-stage fintech founders navigating fundraising and first senior hires.
+                    Path: {domain} / {category} / {specialty || "your specialty"}
                   </p>
                 </section>
               ) : null}
 
-              {creationStep === 2 ? (
+              {creationStep === 3 ? (
                 <section className="space-y-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 2</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 3</p>
                     <h2 className="mt-2 text-xl font-semibold">Describe the decisions</h2>
                   </div>
                   <label className="space-y-2 text-sm text-muted">
@@ -189,12 +265,26 @@ export default function StartAGroupPage() {
                 </section>
               ) : null}
 
-              {creationStep === 3 ? (
+              {creationStep === 4 ? (
                 <section className="space-y-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 3</p>
-                    <h2 className="mt-2 text-xl font-semibold">Who belongs here?</h2>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 4</p>
+                    <h2 className="mt-2 text-xl font-semibold">Entry rules</h2>
                   </div>
+                  <label className="space-y-2 text-sm text-muted">
+                    <span className="block">How does someone earn a seat?</span>
+                    <select
+                      value={entryRule}
+                      onChange={(event) => setEntryRule(event.target.value as (typeof ENTRY_RULES)[number])}
+                      className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                    >
+                      {ENTRY_RULES.map((rule) => (
+                        <option key={rule} value={rule}>
+                          {rule}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="space-y-2 text-sm text-muted">
                     <span className="block">Who is it for?</span>
                     <textarea
@@ -236,7 +326,7 @@ export default function StartAGroupPage() {
                 </section>
               ) : null}
 
-              {creationStep === 3 ? (
+              {creationStep === 4 ? (
                 <div className="rounded-2xl border border-line bg-panel px-4 py-4">
                   <p className="text-sm font-medium text-foreground">Room access</p>
                   <p className="mt-1 text-sm text-muted">
@@ -299,10 +389,10 @@ export default function StartAGroupPage() {
                     Back
                   </button>
                 ) : null}
-                {creationStep < 3 ? (
+                {creationStep < 4 ? (
                   <button
                     type="button"
-                    onClick={() => setCreationStep((step) => Math.min(3, step + 1))}
+                    onClick={() => setCreationStep((step) => Math.min(4, step + 1))}
                     className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
                   >
                     Continue
