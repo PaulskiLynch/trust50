@@ -26,6 +26,98 @@ export default async function MemberProfilePage({ params }: PageProps) {
     notFound();
   }
 
+  const isOwnProfile = viewerId === id;
+
+  if (isOwnProfile) {
+    return (
+      <main className="min-h-screen bg-background px-6 py-12 text-foreground">
+        <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_0.78fr]">
+          <section className="space-y-6">
+            <div className="space-y-2">
+              <Link href="/" className="text-sm font-medium text-muted transition hover:text-foreground">
+                Back to feed
+              </Link>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Me</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+                  Your Trust50 profile
+                </h1>
+                <p className="mt-1 text-sm text-muted">
+                  Manage the context other members use to understand where you can help.
+                </p>
+              </div>
+            </div>
+
+            <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-semibold">Your rooms</h2>
+              <p className="mt-1 text-sm text-muted">
+                Rooms where you can contribute, ask for judgment, and build reputation.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {profile.activeGroups.length ? (
+                  profile.activeGroups.map((group) => (
+                    <Link
+                      key={group.id}
+                      href={`/groups/${group.id}`}
+                      className="rounded-full border border-line bg-panel px-3 py-1.5 text-sm font-medium text-foreground transition hover:border-foreground"
+                    >
+                      {group.name}
+                    </Link>
+                  ))
+                ) : (
+                  <Link
+                    href="/explore-groups"
+                    className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    Find your first room
+                  </Link>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-semibold">Your reputation</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-line bg-panel px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Trust level</p>
+                  <p className="mt-2 text-sm font-medium text-foreground">{profile.credibility.trustLevel}</p>
+                </div>
+                <div className="rounded-2xl border border-line bg-panel px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Helpful replies</p>
+                  <p className="mt-2 text-sm font-medium text-foreground">{profile.credibility.helpfulRepliesCount}</p>
+                </div>
+                <div className="rounded-2xl border border-line bg-panel px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Known for</p>
+                  <p className="mt-2 text-sm font-medium text-foreground">
+                    {profile.credibility.knownFor[0] || "Getting established"}
+                  </p>
+                </div>
+              </div>
+            </section>
+          </section>
+
+          <aside>
+            <ProfileCard
+              user={{
+                id: profile.id,
+                name: profile.name,
+                avatarUrl: profile.avatarUrl,
+                headline: profile.headline,
+                linkedinUrl: profile.linkedinUrl,
+                groupsActiveIn: profile.activeGroups.map((group) => group.name),
+                trustLevel: profile.credibility.trustLevel,
+                helpfulRepliesCount: profile.credibility.helpfulRepliesCount,
+                knownFor: profile.credibility.knownFor,
+                verification: profile.credibility.verification,
+              }}
+            />
+          </aside>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background px-6 py-12 text-foreground">
       <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_0.78fr]">

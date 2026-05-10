@@ -544,7 +544,18 @@ export default function Home() {
 
         <section className="overflow-hidden rounded-[20px] border border-line bg-white shadow-sm">
           {!feedItems.length ? (
-            <div className="px-5 py-8 text-sm text-muted">Nothing needs you right now.</div>
+            <div className="px-5 py-8">
+              <p className="font-medium text-foreground">Find a room where you can add value.</p>
+              <p className="mt-1 text-sm text-muted">
+                Join a trusted room and your feed will fill with questions, decisions, and warm paths that match your context.
+              </p>
+              <Link
+                href="/explore-groups"
+                className="mt-4 inline-flex rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+              >
+                Browse rooms
+              </Link>
+            </div>
           ) : null}
 
           {feedItems.map((item) => (
