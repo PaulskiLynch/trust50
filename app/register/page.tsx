@@ -88,10 +88,17 @@ export default function RegisterPage() {
           <div className="space-y-5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/trust50-logo.png" alt="Trust50" className="h-48 w-48 rounded-[32px] object-contain" />
-            <h1 className="text-3xl font-semibold tracking-tight">Create your Trust50 account</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Join private rooms for trusted advice and warm introductions.</h1>
             <p className="max-w-2xl text-sm leading-7 text-muted">
-              Start with a real profile so you can join rooms, vote on new members, and contribute with context.
+              Start with a real profile so rooms can understand the context you bring before they invite you in.
             </p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {["50 max per room", "4 rooms per person", "Vouched access"].map((label) => (
+                <div key={label} className="rounded-2xl border border-line bg-panel px-4 py-3 text-center text-xs font-medium text-foreground">
+                  {label}
+                </div>
+              ))}
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 grid gap-4 sm:grid-cols-2">

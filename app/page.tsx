@@ -380,17 +380,57 @@ export default function Home() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/trust50-logo.png" alt="Trust50" className="h-48 w-48 rounded-[32px] object-contain" />
                 <div className="space-y-3">
-                  <h1 className="text-3xl font-semibold tracking-tight">Warm paths to people worth knowing.</h1>
+                  <h1 className="text-3xl font-semibold tracking-tight">Private rooms for trusted advice and warm introductions.</h1>
                   <p className="max-w-2xl text-base leading-7 text-muted">
-                    Join private rooms where trusted peers trade useful judgment, warm intros, and earned access.
+                    Join small, vouched rooms where founders, operators, investors, and specialists help each other make better decisions.
                   </p>
                 </div>
+
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {["50 max per room", "4 rooms per person", "Vouched access"].map((label) => (
+                    <div key={label} className="rounded-2xl border border-line bg-panel px-4 py-3 text-center text-xs font-medium text-foreground">
+                      {label}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-3xl border border-line bg-panel p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-center">
+                      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-xs font-semibold text-foreground shadow-sm">
+                        You
+                      </div>
+                    </div>
+                    <div className="h-px flex-1 bg-line" />
+                    <div className="text-center">
+                      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-white shadow-sm">
+                        Room
+                      </div>
+                    </div>
+                    <div className="h-px flex-1 bg-line" />
+                    <div className="text-center">
+                      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-xs font-semibold text-foreground shadow-sm">
+                        Intro
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-center text-xs text-muted">
+                    Trusted context turns into the next warm path.
+                  </p>
+                </div>
+
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Link
                     href="/register"
                     className="inline-flex items-center justify-center rounded-full bg-foreground px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
                   >
                     Create account
+                  </Link>
+                  <Link
+                    href="/explore-groups"
+                    className="inline-flex items-center justify-center rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground"
+                  >
+                    Browse rooms
                   </Link>
                   <button
                     type="button"
@@ -403,45 +443,46 @@ export default function Home() {
                 </div>
               </div>
 
-              <form onSubmit={handleCredentialLogin} className="grid gap-3 border-t border-line pt-6 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <p className="text-sm font-medium text-foreground">Already have an account?</p>
-                  <p className="mt-1 text-sm text-muted">Sign in to return to your rooms.</p>
-                </div>
-                <label className="space-y-2 text-sm text-muted sm:col-span-1">
-                  <span className="block">Email</span>
-                  <input
-                    type="email"
-                    value={emailInput}
-                    onChange={(event) => setEmailInput(event.target.value)}
-                    className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                    placeholder="you@company.com"
-                    autoComplete="email"
-                    required
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-muted sm:col-span-1">
-                  <span className="block">Password</span>
-                  <input
-                    type="password"
-                    value={passwordInput}
-                    onChange={(event) => setPasswordInput(event.target.value)}
-                    className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                    placeholder="At least 8 characters"
-                    autoComplete="current-password"
-                    required
-                  />
-                </label>
-                <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center">
-                  <button
-                    type="submit"
-                    disabled={isCredentialSigningIn || status === "loading"}
-                    className="rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isCredentialSigningIn || status === "loading" ? "Signing in..." : "Sign in"}
-                  </button>
-                </div>
-              </form>
+              <details className="border-t border-line pt-6">
+                <summary className="cursor-pointer text-sm font-medium text-foreground">
+                  Already have an account? Sign in
+                </summary>
+                <form onSubmit={handleCredentialLogin} className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-2 text-sm text-muted sm:col-span-1">
+                    <span className="block">Email</span>
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(event) => setEmailInput(event.target.value)}
+                      className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                      placeholder="you@company.com"
+                      autoComplete="email"
+                      required
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm text-muted sm:col-span-1">
+                    <span className="block">Password</span>
+                    <input
+                      type="password"
+                      value={passwordInput}
+                      onChange={(event) => setPasswordInput(event.target.value)}
+                      className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                      placeholder="At least 8 characters"
+                      autoComplete="current-password"
+                      required
+                    />
+                  </label>
+                  <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center">
+                    <button
+                      type="submit"
+                      disabled={isCredentialSigningIn || status === "loading"}
+                      className="rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isCredentialSigningIn || status === "loading" ? "Signing in..." : "Sign in"}
+                    </button>
+                  </div>
+                </form>
+              </details>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
