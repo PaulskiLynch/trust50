@@ -27,8 +27,10 @@ type CurrentProfile = {
 
 type Reply = {
   id: string;
+  body?: string | null;
   createdAt: string;
   senderId: string;
+  sender?: User | null;
 };
 
 type Request = {
@@ -63,14 +65,50 @@ type FeedItem = {
   groupName: string;
   discussionId: string;
   memberName: string;
+  memberAvatarUrl?: string | null;
   question: string;
+  preview: string;
+  socialProof: string;
   kind: "question" | "vouch";
+  candidateCount?: number;
   timestamp: number;
 };
 
 function discussionTitle(request: Request) {
   if (request.title?.trim()) return request.title.trim();
   return request.content.length > 72 ? `${request.content.slice(0, 69)}...` : request.content;
+}
+
+function shortenText(value: string, limit: number) {
+  const compact = value.replace(/\s+/g, " ").trim();
+  return compact.length > limit ? `${compact.slice(0, limit - 3)}...` : compact;
+}
+
+function memberInitial(name: string) {
+  return name.trim().slice(0, 1).toUpperCase() || "T";
+}
+
+function replyCountLabel(count: number) {
+  if (count === 0) return "New since yesterday";
+  if (count === 1) return "1 reply today";
+  return `${count} replies today`;
+}
+
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+      <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    </svg>
+  );
+}
+
+function SkipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+      <path d="m7 7 10 10M17 7 7 17" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 function getLatestActivityTimestamp(group: Group) {
@@ -186,7 +224,10 @@ export default function Home() {
             groupName: group.name,
             discussionId: request.id,
             memberName: request.creator?.name || request.creator?.email || "Unknown member",
+            memberAvatarUrl: request.creator?.avatarUrl ?? null,
             question: discussionTitle(request),
+            preview: shortenText(request.content, 150),
+            socialProof: replyCountLabel(request.replies.length),
             kind: "question",
             timestamp: lastActivity,
           });
@@ -207,8 +248,12 @@ export default function Home() {
         groupName: group.name,
         discussionId: "",
         memberName: "Voting",
+        memberAvatarUrl: null,
         question: `${candidateCount} candidate${candidateCount === 1 ? "" : "s"} need room vouches`,
+        preview: "The room needs a quick read on who belongs at the table.",
+        socialProof: `${candidateCount} waiting`,
         kind: "vouch" as const,
+        candidateCount,
         timestamp: Date.now(),
       }));
 
@@ -435,36 +480,62 @@ export default function Home() {
 
           {feedItems.map((item) => (
             <div key={item.id} className="border-b border-line px-5 py-5 last:border-b-0">
-              <Link
-                href={item.discussionId ? `/groups/${item.groupId}/discussions/${item.discussionId}` : `/groups/${item.groupId}/votes`}
-                className="block"
-              >
-                <p className="text-sm font-medium text-muted">
-                  {item.groupName} · {item.memberName}
-                </p>
-                <p className="mt-2 text-lg font-medium leading-7 text-foreground">&ldquo;{item.question}&rdquo;</p>
-              </Link>
+              <div className="flex items-start gap-3">
+                {item.memberAvatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.memberAvatarUrl}
+                    alt={item.memberName}
+                    className="h-11 w-11 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-white">
+                    {item.kind === "vouch" ? String(item.candidateCount ?? 0) : memberInitial(item.memberName)}
+                  </div>
+                )}
 
-              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href={item.discussionId ? `/groups/${item.groupId}/discussions/${item.discussionId}` : `/groups/${item.groupId}/votes`}
+                  className="min-w-0 flex-1"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-foreground">{item.memberName}</p>
+                    <span className="rounded-full bg-panel px-2.5 py-1 text-xs font-medium text-muted">
+                      {item.groupName}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-base font-semibold leading-6 text-foreground">&ldquo;{item.question}&rdquo;</p>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    {item.memberName}: &ldquo;{item.preview}&rdquo;
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-muted">{item.socialProof}</p>
+                </Link>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2 pl-14">
                 <Link
                   href={item.discussionId ? `/groups/${item.groupId}/discussions/${item.discussionId}` : `/groups/${item.groupId}/votes`}
                   className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
                 >
-                  {item.kind === "vouch" ? "See candidates" : "Reply 60s"}
+                  {item.kind === "vouch" ? "Vote" : "Reply"}
                 </Link>
                 <button
                   type="button"
                   onClick={() => setFlash("Passed.")}
-                  className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                  title="Pass"
+                  aria-label="Pass"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-muted transition hover:border-foreground hover:text-foreground"
                 >
-                  Pass
+                  <SkipIcon />
                 </button>
                 <button
                   type="button"
                   onClick={() => setFlash("Saved for later.")}
-                  className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                  title="Later"
+                  aria-label="Later"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-muted transition hover:border-foreground hover:text-foreground"
                 >
-                  Later
+                  <ClockIcon />
                 </button>
               </div>
             </div>
