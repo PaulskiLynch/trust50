@@ -375,15 +375,39 @@ export default function Home() {
       <main className="min-h-screen bg-background px-6 py-12 text-foreground">
         <div className="mx-auto max-w-3xl space-y-6">
           <section className="rounded-[28px] border border-line bg-white p-8 shadow-sm">
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <h1 className="text-3xl font-semibold tracking-tight">Trust50</h1>
-                <p className="max-w-2xl text-sm leading-7 text-muted">
-                  Sign in to see the questions your rooms need you on.
-                </p>
+            <div className="space-y-8">
+              <div className="space-y-5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/trust50-logo.png" alt="Trust50" className="h-16 w-16 rounded-2xl object-contain" />
+                <div className="space-y-3">
+                  <h1 className="text-3xl font-semibold tracking-tight">Warm paths to people worth knowing.</h1>
+                  <p className="max-w-2xl text-base leading-7 text-muted">
+                    Join private rooms where operators trade useful judgment, warm intros, and earned access.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Link
+                    href="/register"
+                    className="inline-flex items-center justify-center rounded-full bg-foreground px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    Create account
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => void handleTestLogin()}
+                    disabled={isLoggingIn || status === "loading"}
+                    className="rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isLoggingIn || status === "loading" ? "Signing in..." : "Use test login"}
+                  </button>
+                </div>
               </div>
 
-              <form onSubmit={handleCredentialLogin} className="grid gap-3 sm:grid-cols-2">
+              <form onSubmit={handleCredentialLogin} className="grid gap-3 border-t border-line pt-6 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <p className="text-sm font-medium text-foreground">Already have an account?</p>
+                  <p className="mt-1 text-sm text-muted">Sign in to return to your rooms.</p>
+                </div>
                 <label className="space-y-2 text-sm text-muted sm:col-span-1">
                   <span className="block">Email</span>
                   <input
@@ -412,23 +436,9 @@ export default function Home() {
                   <button
                     type="submit"
                     disabled={isCredentialSigningIn || status === "loading"}
-                    className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isCredentialSigningIn || status === "loading" ? "Signing in..." : "Sign in"}
-                  </button>
-                  <Link
-                    href="/register"
-                    className="inline-flex items-center justify-center rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground"
-                  >
-                    Create account
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => void handleTestLogin()}
-                    disabled={isLoggingIn || status === "loading"}
                     className="rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isLoggingIn || status === "loading" ? "Signing in..." : "Use test login"}
+                    {isCredentialSigningIn || status === "loading" ? "Signing in..." : "Sign in"}
                   </button>
                 </div>
               </form>
