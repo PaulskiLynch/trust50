@@ -70,6 +70,7 @@ type FeedItem = {
   question: string;
   preview: string;
   socialProof: string;
+  supportCount: number;
   mediaUrl?: string | null;
   kind: "question" | "vouch";
   candidateCount?: number;
@@ -92,13 +93,43 @@ function memberInitial(name: string) {
 
 function replyCountLabel(count: number) {
   if (count === 0) return "New since yesterday";
-  if (count === 1) return "1 reply today";
-  return `${count} replies today`;
+  if (count === 1) return "1 comment today";
+  return `${count} comments today`;
+}
+
+function supportCountLabel(count: number) {
+  if (count === 1) return "1 support";
+  return `${count} support`;
+}
+
+function getSupportCount(request: Request) {
+  return Math.max(0, request.replies.length * 2 + (request.mediaUrl ? 1 : 0));
+}
+
+function SupportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M7 11v9H4.8A1.8 1.8 0 0 1 3 18.2v-5.4A1.8 1.8 0 0 1 4.8 11H7Z" strokeLinejoin="round" />
+      <path
+        d="M7 11h2.6l2.3-6.2c.3-.8 1.2-1.2 2-.8.8.3 1.2 1.2.9 2l-1.2 3.2H18a2 2 0 0 1 2 2.3l-.8 5.4A3.6 3.6 0 0 1 15.6 20H7v-9Z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M6 17.5 4 21v-4.8A7.5 7.5 0 0 1 5.5 4h13A3.5 3.5 0 0 1 22 7.5v5A3.5 3.5 0 0 1 18.5 16h-8.7c-1.4 0-2.7.5-3.8 1.5Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 function ClockIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
       <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
     </svg>
@@ -107,7 +138,7 @@ function ClockIcon() {
 
 function SkipIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
       <path d="m7 7 10 10M17 7 7 17" strokeLinecap="round" />
     </svg>
   );
@@ -230,6 +261,7 @@ export default function Home() {
             question: discussionTitle(request),
             preview: shortenText(request.content, 150),
             socialProof: replyCountLabel(request.replies.length),
+            supportCount: getSupportCount(request),
             mediaUrl: request.mediaUrl ?? null,
             kind: "question",
             timestamp: lastActivity,
@@ -255,6 +287,7 @@ export default function Home() {
         question: `${candidateCount} candidate${candidateCount === 1 ? "" : "s"} need room vouches`,
         preview: "The room needs a quick read on who belongs at the table.",
         socialProof: `${candidateCount} waiting`,
+        supportCount: candidateCount,
         mediaUrl: null,
         kind: "vouch" as const,
         candidateCount,
@@ -524,34 +557,47 @@ export default function Home() {
                       className="mt-3 aspect-[16/9] w-full rounded-2xl border border-line object-cover"
                     />
                   ) : null}
-                  <p className="mt-2 text-xs font-medium text-muted">{item.socialProof}</p>
+                  <p className="mt-2 text-xs font-medium text-muted">
+                    {supportCountLabel(item.supportCount)} · {item.socialProof}
+                  </p>
                 </Link>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2 pl-14">
+              <div className="mt-4 grid grid-cols-4 border-t border-line/70 pt-2 pl-14">
+                <button
+                  type="button"
+                  onClick={() => setFlash("Supported.")}
+                  className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
+                >
+                  <SupportIcon />
+                  <span>Support</span>
+                </button>
                 <Link
                   href={item.discussionId ? `/groups/${item.groupId}/discussions/${item.discussionId}` : `/groups/${item.groupId}/votes`}
-                  className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                  className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
                 >
-                  {item.kind === "vouch" ? "Vote" : "Reply"}
+                  <CommentIcon />
+                  <span>{item.kind === "vouch" ? "Vote" : "Comment"}</span>
                 </Link>
                 <button
                   type="button"
                   onClick={() => setFlash("Passed.")}
                   title="Pass"
                   aria-label="Pass"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-muted transition hover:border-foreground hover:text-foreground"
+                  className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
                 >
                   <SkipIcon />
+                  <span>Pass</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setFlash("Saved for later.")}
                   title="Later"
                   aria-label="Later"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-muted transition hover:border-foreground hover:text-foreground"
+                  className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
                 >
                   <ClockIcon />
+                  <span>Later</span>
                 </button>
               </div>
             </div>
