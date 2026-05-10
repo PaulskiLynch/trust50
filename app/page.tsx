@@ -586,16 +586,26 @@ export default function Home() {
         <section className="overflow-hidden rounded-[20px] border border-line bg-white shadow-sm">
           {!feedItems.length ? (
             <div className="px-5 py-8">
-              <p className="font-medium text-foreground">Find a room where you can add value.</p>
+              <p className="font-medium text-foreground">Build your profile so rooms can understand your fit.</p>
               <p className="mt-1 text-sm text-muted">
-                Join a trusted room and your feed will fill with questions, decisions, and warm paths that match your context.
+                Your profile is how rooms decide whether you&apos;re a strong fit. Add a few details about your experience, what you can help with, and what you&apos;re working on.
               </p>
-              <Link
-                href="/explore-groups"
-                className="mt-4 inline-flex rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-              >
-                Browse rooms
-              </Link>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {currentUser ? (
+                  <Link
+                    href={`/members/${currentUser.id}#build-profile`}
+                    className="inline-flex rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    Build my profile
+                  </Link>
+                ) : null}
+                <Link
+                  href="/explore-groups"
+                  className="inline-flex rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                >
+                  Browse rooms
+                </Link>
+              </div>
             </div>
           ) : null}
 

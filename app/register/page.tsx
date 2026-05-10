@@ -11,6 +11,10 @@ type FormState = {
   password: string;
   company: string;
   role: string;
+  location: string;
+  stageIndustry: string;
+  helpTags: string;
+  workingOn: string;
   bio: string;
 };
 
@@ -20,6 +24,10 @@ const initialState: FormState = {
   password: "",
   company: "",
   role: "",
+  location: "",
+  stageIndustry: "",
+  helpTags: "",
+  workingOn: "",
   bio: "",
 };
 
@@ -159,6 +167,47 @@ export default function RegisterPage() {
                 className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
                 placeholder="Founder, operator, investor..."
                 autoComplete="organization-title"
+              />
+            </label>
+            <label className="space-y-2 text-sm text-muted">
+              <span className="block">Location</span>
+              <input
+                type="text"
+                value={form.location}
+                onChange={(event) => updateField("location", event.target.value)}
+                className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                placeholder="City, region, or remote"
+                autoComplete="address-level2"
+              />
+            </label>
+            <label className="space-y-2 text-sm text-muted">
+              <span className="block">Stage / industry</span>
+              <input
+                type="text"
+                value={form.stageIndustry}
+                onChange={(event) => updateField("stageIndustry", event.target.value)}
+                className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                placeholder="Seed SaaS, pharma AI, property ops..."
+              />
+            </label>
+            <label className="space-y-2 text-sm text-muted sm:col-span-2">
+              <span className="block">What I can help with</span>
+              <textarea
+                value={form.helpTags}
+                onChange={(event) => updateField("helpTags", event.target.value)}
+                className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                placeholder="Hiring first sales lead, pharma AI adoption, fundraising strategy..."
+                maxLength={300}
+              />
+            </label>
+            <label className="space-y-2 text-sm text-muted sm:col-span-2">
+              <span className="block">What I&apos;m working on now</span>
+              <textarea
+                value={form.workingOn}
+                onChange={(event) => updateField("workingOn", event.target.value)}
+                className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                placeholder="A short live context field for better intros and advice."
+                maxLength={240}
               />
             </label>
             <label className="space-y-2 text-sm text-muted sm:col-span-2">

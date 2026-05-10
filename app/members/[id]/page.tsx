@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ProfileCard } from "@/components/ProfileCard";
+import { ProfileBuilder } from "@/components/ProfileBuilder";
 import { getAuthSession } from "@/lib/auth";
 import { getAccessibleProfile } from "@/lib/profiles";
 
@@ -75,6 +76,8 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 )}
               </div>
             </section>
+
+            <ProfileBuilder profile={profile} />
 
             <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
               <h2 className="text-xl font-semibold">Your reputation</h2>
