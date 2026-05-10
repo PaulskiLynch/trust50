@@ -53,6 +53,28 @@ const filterChips = [
   "Has open seats",
 ];
 
+const roomTagMap: Record<string, string[]> = {
+  "group-founders": ["Founder/operator", "Local"],
+  "group-operators": ["Founder/operator", "Professional services"],
+  "group-women-pharma": ["Pharma/health", "Professional services"],
+  "group-digital-pharma": ["Pharma/health", "Professional services"],
+  "group-health-ai": ["Pharma/health", "Founder/operator"],
+  "group-property-management": ["Professional services", "Local"],
+  "group-investments": ["Investing"],
+  "group-dog-training": ["Professional services", "Creative"],
+  "group-music-production": ["Creative"],
+};
+
+const searchAliases: Record<string, string[]> = {
+  "group-women-pharma": ["pharma", "health", "clinical", "medical", "biotech"],
+  "group-digital-pharma": ["pharma", "health", "ai", "digital", "data", "clinical"],
+  "group-health-ai": ["pharma", "health", "ai", "medical", "founder"],
+  "group-property-management": ["property", "real estate", "ops", "local"],
+  "group-investments": ["investing", "finance", "capital", "cfo", "risk"],
+  "group-music-production": ["creative", "music", "audio", "sync"],
+  "group-dog-training": ["professional services", "training", "behavior"],
+};
+
 function priceLabel(price: number | null) {
   return price && price > 0 ? `EUR ${price}/month` : "Free";
 }
@@ -74,8 +96,10 @@ function oneLine(value: string, limit = 96) {
 }
 
 function groupTags(group: Group) {
-  const text = `${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`.toLowerCase();
+  const text = `${group.id} ${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`.toLowerCase();
   const tags = new Set<string>();
+
+  roomTagMap[group.id]?.forEach((tag) => tags.add(tag));
 
   if (text.match(/founder|operator|startup|series|product|hiring|growth/)) tags.add("Founder/operator");
   if (text.match(/pharma|health|clinical|medical|biotech|ai/)) tags.add("Pharma/health");
@@ -148,7 +172,8 @@ export default function ExploreGroupsPage() {
     return liveGroups.filter((group) => {
       const tags = groupTags(group);
       const matchesFilter = activeFilter === "All" || tags.includes(activeFilter);
-      const haystack = `${group.name} ${group.description || ""} ${group.whoFor} ${group.whoNotFor} ${group.valueProp} ${tags.join(" ")}`.toLowerCase();
+      const aliases = searchAliases[group.id]?.join(" ") || "";
+      const haystack = `${group.id} ${group.name} ${group.owner.name || ""} ${group.owner.email} ${group.description || ""} ${group.whoFor} ${group.whoNotFor} ${group.valueProp} ${tags.join(" ")} ${aliases}`.toLowerCase();
       const matchesQuery = !normalizedQuery || haystack.includes(normalizedQuery);
 
       return matchesFilter && matchesQuery;
