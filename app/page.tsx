@@ -87,10 +87,6 @@ function shortenText(value: string, limit: number) {
   return compact.length > limit ? `${compact.slice(0, limit - 3)}...` : compact;
 }
 
-function memberInitial(name: string) {
-  return name.trim().slice(0, 1).toUpperCase() || "T";
-}
-
 function replyCountLabel(count: number) {
   if (count === 0) return "New since yesterday";
   if (count === 1) return "1 comment today";
@@ -104,6 +100,20 @@ function supportCountLabel(count: number) {
 
 function getSupportCount(request: Request) {
   return Math.max(0, request.replies.length * 2 + (request.mediaUrl ? 1 : 0));
+}
+
+const sampleMediaUrls = [
+  "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1576086213369-97a306d36557?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80",
+];
+
+function getSampleMediaUrl(groupName: string, requestId: string) {
+  const key = `${groupName}-${requestId}`;
+  const index = [...key].reduce((total, char) => total + char.charCodeAt(0), 0) % sampleMediaUrls.length;
+  return sampleMediaUrls[index];
 }
 
 function SupportIcon() {
@@ -262,7 +272,7 @@ export default function Home() {
             preview: shortenText(request.content, 150),
             socialProof: replyCountLabel(request.replies.length),
             supportCount: getSupportCount(request),
-            mediaUrl: request.mediaUrl ?? null,
+            mediaUrl: request.mediaUrl ?? getSampleMediaUrl(group.name, request.id),
             kind: "question",
             timestamp: lastActivity,
           });
@@ -530,9 +540,18 @@ export default function Home() {
                     className="h-11 w-11 shrink-0 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-white">
-                    {item.kind === "vouch" ? String(item.candidateCount ?? 0) : memberInitial(item.memberName)}
-                  </div>
+                  item.kind === "vouch" ? (
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-white">
+                      {String(item.candidateCount ?? 0)}
+                    </div>
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src="/profile-placeholder.svg"
+                      alt={item.memberName}
+                      className="h-11 w-11 shrink-0 rounded-full object-cover"
+                    />
+                  )
                 )}
 
                 <Link
