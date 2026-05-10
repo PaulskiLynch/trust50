@@ -61,6 +61,31 @@ function applicantHeadline(membership: Membership) {
   return membership.user?.headline || "Applicant";
 }
 
+function applicantInitials(membership: Membership) {
+  return applicantName(membership)
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function placeholderAvatarUrl(membership: Membership) {
+  const palettes = [
+    ["#f4f1ec", "#8a6f4d"],
+    ["#eef3ef", "#426654"],
+    ["#f2eef6", "#675080"],
+    ["#eef4f7", "#3f6575"],
+    ["#f7f0ed", "#8a5546"],
+    ["#f4f4e8", "#6c6b3f"],
+  ];
+  const name = applicantName(membership);
+  const index = [...name].reduce((total, char) => total + char.charCodeAt(0), 0) % palettes.length;
+  const [background, foreground] = palettes[index];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="48" fill="${background}"/><circle cx="48" cy="35" r="16" fill="${foreground}" opacity=".42"/><path d="M20 82c4-18 15-28 28-28s24 10 28 28" fill="${foreground}" opacity=".42"/><text x="48" y="54" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="${foreground}">${applicantInitials(membership)}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 function voucherSummary(count: number, threshold: number) {
   const remaining = Math.max(0, threshold - count);
   if (remaining === 0) return "Ready for admission";
@@ -97,7 +122,7 @@ function Avatar({ membership }: { membership: Membership }) {
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src="/profile-placeholder.svg" alt={applicantName(membership)} className="h-12 w-12 rounded-full object-cover" />
+    <img src={placeholderAvatarUrl(membership)} alt={applicantName(membership)} className="h-12 w-12 rounded-full object-cover" />
   );
 }
 
@@ -121,6 +146,7 @@ export default function GroupVotesPage({ params }: PageProps) {
   const [flash, setFlash] = useState<string | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [recommendingId, setRecommendingId] = useState<string | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     void params.then((value) => setGroupId(value.id));
@@ -162,18 +188,20 @@ export default function GroupVotesPage({ params }: PageProps) {
 
   const candidates = useMemo(
     () =>
-      [...(group?.memberships.filter((membership) => membership.status === "pending") ?? [])].sort((left, right) => {
-        const leftRecommended = left.recommendedBy ? 1 : 0;
-        const rightRecommended = right.recommendedBy ? 1 : 0;
-        if (leftRecommended !== rightRecommended) return rightRecommended - leftRecommended;
-        return (right.votes?.length ?? 0) - (left.votes?.length ?? 0);
-      }),
-    [group],
+      [...(group?.memberships.filter((membership) => membership.status === "pending") ?? [])]
+        .filter((membership) => !dismissedIds.has(membership.id))
+        .sort((left, right) => {
+          const leftRecommended = left.recommendedBy ? 1 : 0;
+          const rightRecommended = right.recommendedBy ? 1 : 0;
+          if (leftRecommended !== rightRecommended) return rightRecommended - leftRecommended;
+          return (right.votes?.length ?? 0) - (left.votes?.length ?? 0);
+        }),
+    [dismissedIds, group],
   );
 
   const queuedCandidates = useMemo(
-    () => group?.memberships.filter((membership) => membership.status === "waitlist") ?? [],
-    [group],
+    () => group?.memberships.filter((membership) => membership.status === "waitlist" && !dismissedIds.has(membership.id)) ?? [],
+    [dismissedIds, group],
   );
 
   const isEligibleVoter = useMemo(
@@ -239,6 +267,11 @@ export default function GroupVotesPage({ params }: PageProps) {
     } finally {
       setRecommendingId(null);
     }
+  }
+
+  function handlePass(membershipId: string) {
+    setDismissedIds((current) => new Set(current).add(membershipId));
+    setFlash("Passed for now.");
   }
 
   return (
@@ -358,7 +391,7 @@ export default function GroupVotesPage({ params }: PageProps) {
                       <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => setFlash("Passed for now.")}
+                          onClick={() => handlePass(membership.id)}
                           title="Pass"
                           aria-label="Pass"
                           className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-muted transition hover:border-foreground hover:text-foreground"
@@ -419,7 +452,7 @@ export default function GroupVotesPage({ params }: PageProps) {
                     <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
                       <button
                         type="button"
-                        onClick={() => setFlash("Passed for now.")}
+                        onClick={() => handlePass(membership.id)}
                         title="Pass"
                         aria-label="Pass"
                         className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-muted transition hover:border-foreground hover:text-foreground"

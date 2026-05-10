@@ -734,17 +734,65 @@ const coreUsers = [
   },
 ];
 
+const sampleApplicantNames = [
+  ["Anna Kowalski", "Founder @ FlowDesk"],
+  ["Mateusz Zielinski", "Product Lead @ Baltic Labs"],
+  ["Elena Petrova", "Investor @ Northline Capital"],
+  ["Tomasz Nowak", "Operator @ RentOS"],
+  ["Sofia Marin", "People Lead @ CloudForge"],
+  ["Jonas Weber", "CFO @ Atlas Bio"],
+  ["Kasia Wozniak", "Founder @ SignalStack"],
+  ["Marek Lewandowski", "Marketplace Lead @ Homebase"],
+  ["Nadia Popescu", "Strategy Lead @ MedVector"],
+  ["Lukas Meyer", "Principal @ Alpine Ventures"],
+  ["Freya Holm", "Finance Lead @ NovoWorks"],
+  ["Rafael Costa", "Growth Lead @ LedgerPeak"],
+  ["Marta Silva", "Ops Director @ ClinicOS"],
+  ["Isabel Torres", "Translational Lead @ GeneBridge"],
+  ["Ayden Brooks", "Producer @ North Room"],
+  ["Mina Sato", "AI Product Lead @ TrialPath"],
+  ["Owen Gallagher", "Facilities Lead @ Block & Stone"],
+  ["Lea Fischer", "Founder @ Crewline"],
+  ["Daria Ivanova", "Regulatory Lead @ MoleculeWorks"],
+  ["Noah Stein", "Investment Associate @ Greyline"],
+  ["Amira Haddad", "Medical Affairs Lead @ NovaCure"],
+  ["Pavel Novak", "Engineering Manager @ WarsawGrid"],
+  ["Camille Laurent", "BD Lead @ Helix Partners"],
+  ["Elias Berg", "COO @ Turnkey"],
+  ["Priya Menon", "Digital Transformation @ PharmaNorth"],
+  ["Victor Alvarez", "Asset Manager @ UrbanKey"],
+  ["Hanna Schmidt", "Talent Partner @ SeedStage"],
+  ["Daniel Kavanagh", "Data Lead @ ComplyAI"],
+  ["Laura Rossi", "Founder @ OpsNest"],
+  ["Theo Jensen", "Portfolio Manager @ Rivercap"],
+  ["Clara Becker", "Clinical Ops Lead @ TrialCore"],
+  ["Samir Qureshi", "Maintenance Director @ Doorway"],
+  ["Julia Nowicka", "Head of Product @ FinPilot"],
+  ["Oscar Lind", "Partner @ Nordic Growth"],
+  ["Ines Ribeiro", "Sync Producer @ Silverline"],
+  ["Ben Carter", "Revenue Ops @ StackLane"],
+  ["Magda Lis", "Founder @ HireLoop"],
+  ["Mateo Jimenez", "Finance Director @ AndesPay"],
+  ["Charlotte Reed", "Property Ops Advisor"],
+  ["Alex Morgan", "Operator @ RelayWorks"],
+  ["Sara Holt", "Product Coach @ Foundry"],
+  ["Nina Duarte", "Curator @ Warsaw Founders"],
+  ["Olivia Grant", "Regional Ops Lead @ Northstar"],
+  ["Pablo Ortega", "Investor @ CoreBridge"],
+  ["Kira Antonova", "Founder @ DataNest"],
+];
+
 const dummyUsers = Array.from({ length: 45 }, (_, index) => {
   const number = index + 1;
   const id = `waitlist-user-${String(number).padStart(2, "0")}`;
-  const formatted = String(number).padStart(2, "0");
   const phone = `+48 600 ${String(100 + number).padStart(3, "0")} ${String(200 + number).padStart(3, "0")}`;
+  const [name, headline] = sampleApplicantNames[index];
 
   return {
     id,
     email: `${id}@fourhops.local`,
-    name: `Member ${formatted}`,
-    headline: number % 3 === 0 ? "Founder @ DemoCo" : number % 3 === 1 ? "Operator @ DemoCo" : "Investor @ DemoCo",
+    name,
+    headline,
     linkedinUrl: `https://www.linkedin.com/in/${id}`,
     whatsappNumber: phone,
     phoneNumber: phone,
@@ -756,7 +804,7 @@ const dummyUsers = Array.from({ length: 45 }, (_, index) => {
 const allUsers = [...coreUsers, ...dummyUsers].map((user) => ({
   ...user,
   passwordHash: user.passwordHash ?? sharedPasswordHash,
-  avatarUrl: sharedAvatarUrl,
+  avatarUrl: user.id.startsWith("waitlist-user-") ? null : sharedAvatarUrl,
 }));
 
 async function main() {
