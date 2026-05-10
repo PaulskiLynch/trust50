@@ -175,6 +175,42 @@ function SkipIcon() {
   );
 }
 
+function WireIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M4 6.5h16M4 12h10M4 17.5h7" strokeLinecap="round" />
+      <path d="M17 13.5 20 16l-3 2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function RoomsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M4 10.5 12 4l8 6.5V20H4v-9.5Z" strokeLinejoin="round" />
+      <path d="M9 20v-6h6v6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+      <path d="M4.5 21a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M10 5H6.5A2.5 2.5 0 0 0 4 7.5v9A2.5 2.5 0 0 0 6.5 19H10" strokeLinecap="round" />
+      <path d="M14 8l4 4-4 4M18 12H9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function getLatestActivityTimestamp(group: Group) {
   const timestamps = group.requests.flatMap((request) => [
     +new Date(request.createdAt),
@@ -554,27 +590,38 @@ export default function Home() {
               <h1 className="mt-0.5 text-sm font-medium text-muted">For you</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-end gap-1 sm:gap-3">
+            <Link
+              href="/"
+              className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-foreground transition hover:bg-panel"
+              aria-current="page"
+            >
+              <WireIcon />
+              <span>Wire</span>
+            </Link>
             <Link
               href="/explore-groups"
-              className="rounded-full border border-line bg-white px-3 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+              className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
             >
-              Rooms
+              <RoomsIcon />
+              <span>Rooms</span>
             </Link>
             {currentUser ? (
               <Link
                 href={`/members/${currentUser.id}`}
-                className="rounded-full border border-line bg-white px-3 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
+                className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
               >
-                Me
+                <MeIcon />
+                <span>Me</span>
               </Link>
             ) : null}
             <button
               type="button"
               onClick={() => void handleSignOut()}
-              className="rounded-full border border-line bg-white px-3 py-2 text-sm font-medium text-muted transition hover:border-foreground hover:text-foreground"
+              className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
             >
-              Sign out
+              <SignOutIcon />
+              <span>Out</span>
             </button>
           </div>
         </header>
