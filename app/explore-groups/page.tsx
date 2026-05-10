@@ -85,6 +85,15 @@ function statusLabel(status: string) {
   return "Draft";
 }
 
+function initials(value: string | null | undefined) {
+  const source = value?.trim() || "Trust50";
+  return source
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
 function getMembership(group: Group, userId: string | null) {
   if (!userId) return null;
   return group.memberships.find((membership) => membership.userId === userId) ?? null;
@@ -93,6 +102,32 @@ function getMembership(group: Group, userId: string | null) {
 function oneLine(value: string, limit = 96) {
   const compact = value.replace(/\s+/g, " ").trim();
   return compact.length > limit ? `${compact.slice(0, limit - 3)}...` : compact;
+}
+
+function recentDiscussions(group: Group) {
+  const text = `${group.id} ${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`.toLowerCase();
+
+  if (text.match(/pharma|health|clinical|medical|biotech/)) {
+    return ["AI adoption inside regulated teams", "Clinical workflow buy-in", "Evidence that moves committees"];
+  }
+
+  if (text.match(/invest|fund|capital|cfo|finance|risk/)) {
+    return ["Underwriting the risk others missed", "Warm CFO paths", "When to pass on a deal"];
+  }
+
+  if (text.match(/warsaw|founder|startup|series|product|hiring/)) {
+    return ["First senior hire in Warsaw", "Founder-led GTM", "When advisors become noise"];
+  }
+
+  if (text.match(/property|management|ops|operator/)) {
+    return ["Promoting strong onsite managers", "Concessions versus hold rate", "Overflow maintenance models"];
+  }
+
+  if (text.match(/creative|music|audio|producer|sync/)) {
+    return ["Pricing creative retainers", "Sync deal quality", "Trusted collaborator lists"];
+  }
+
+  return ["Warm intros that worked", "Decisions members are facing", "Who can help this week"];
 }
 
 function groupTags(group: Group) {
@@ -190,35 +225,36 @@ export default function ExploreGroupsPage() {
           </Link>
         </div>
 
-        <section className="rounded-[28px] border border-line bg-white p-8 shadow-sm">
-          <div className="max-w-3xl space-y-3">
-            <h1 className="text-3xl font-semibold tracking-tight">Find the rooms worth one of your four slots</h1>
-            <p className="text-sm leading-7 text-muted">
-              Browse live Trust50 rooms, see how full they are, and request access where your context is strongest.
-            </p>
-            <p className="text-sm font-medium text-foreground">
-              You have 4 member slots. Choose rooms where you can both contribute and benefit.
-            </p>
+        <section className="rounded-[24px] border border-line bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-3xl space-y-3">
+              <h1 className="text-3xl font-semibold tracking-tight">Find the rooms worth one of your four slots</h1>
+              <p className="text-sm leading-7 text-muted">
+                Browse live Trust50 rooms by fit, activity, and how hard they are to enter.
+              </p>
+            </div>
+            <div className="shrink-0 rounded-full border border-line bg-panel px-4 py-2 text-sm font-medium text-foreground">
+              {activeMemberSlotsUsed}/4 slots used
+            </div>
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-line bg-white p-5 shadow-sm">
-          <label className="block space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Best match</span>
+        <section className="sticky top-4 z-10 rounded-[20px] border border-line bg-white/95 p-4 shadow-sm backdrop-blur">
+          <label className="block">
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
-              placeholder="Search by decision, industry, city, or role"
+              className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none transition focus:border-foreground"
+              placeholder="Search rooms by decision, industry, city, or role"
             />
           </label>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {filterChips.map((chip) => (
               <button
                 key={chip}
                 type="button"
                 onClick={() => setActiveFilter(chip)}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                   activeFilter === chip
                     ? "bg-foreground text-white"
                     : "border border-line bg-white text-muted hover:border-foreground hover:text-foreground"
@@ -229,27 +265,6 @@ export default function ExploreGroupsPage() {
             ))}
           </div>
         </section>
-
-        {currentUserId ? (
-          <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  You&apos;re using {activeMemberSlotsUsed} of 4 room slots.
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  To join a new room, leave an existing one. Rooms you run do not count toward your limit.
-                </p>
-              </div>
-              <Link
-                href="/"
-                className="rounded-full border border-line bg-panel px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
-              >
-                Back to feed
-              </Link>
-            </div>
-          </section>
-        ) : null}
 
         {flash ? (
           <div className="rounded-2xl border border-line bg-white px-5 py-3 text-sm text-muted shadow-sm">
@@ -304,7 +319,17 @@ export default function ExploreGroupsPage() {
             ).length;
             const activeThreadCount = (group.requests ?? []).filter((request) => request.status === "open").length;
             const slotsFull = activeMemberSlotsUsed >= 4;
-            const tags = groupTags(group);
+            const difficultySignal = waitlistCount || pendingCount ? `${waitlistCount + pendingCount} waiting` : "Open seats";
+            const activitySignal =
+              activeThreadCount >= 3
+                ? "4 conversations today"
+                : outcomesThisMonth
+                  ? `${outcomesThisMonth} outcomes this month`
+                  : group.status === "active"
+                    ? "Fast replies"
+                    : "New room";
+            const peopleSignal = `Run by ${group.owner.name || group.owner.email}`;
+            const discussions = recentDiscussions(group);
 
             let action: { href: string; label: string; secondary?: boolean };
 
@@ -323,60 +348,69 @@ export default function ExploreGroupsPage() {
             }
 
             return (
-              <article key={group.id} className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
+              <article key={group.id} className="rounded-[24px] border border-line bg-white p-6 shadow-sm">
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-3xl space-y-4">
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-                      <span className="rounded-full border border-line px-3 py-1">{statusLabel(group.status)}</span>
-                      <span className="rounded-full border border-line px-3 py-1">{priceLabel(group.price)}</span>
-                      <span className="rounded-full border border-line px-3 py-1">
-                        {group.memberCount}/50 members
-                      </span>
-                      {waitlistCount ? (
-                        <span className="rounded-full border border-line px-3 py-1">{waitlistCount} waiting</span>
-                      ) : null}
-                      {pendingCount ? (
-                        <span className="rounded-full border border-line px-3 py-1">{pendingCount} in review</span>
-                      ) : null}
-                      {outcomesThisMonth ? (
-                        <span className="rounded-full border border-line px-3 py-1">{outcomesThisMonth} outcomes this month</span>
-                      ) : null}
-                      {activeThreadCount >= 3 ? (
-                        <span className="rounded-full border border-line px-3 py-1">High engagement</span>
-                      ) : null}
-                    </div>
-
+                  <div className="max-w-3xl space-y-5">
                     <div className="space-y-2">
-                      <h2 className="text-2xl font-semibold tracking-tight text-foreground">{group.name}</h2>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <h2 className="text-2xl font-semibold tracking-tight text-foreground">{group.name}</h2>
+                        <span className="text-sm text-muted">
+                          {group.memberCount}/50 members / {difficultySignal}
+                        </span>
+                      </div>
                       <p className="text-sm leading-7 text-muted">
                         {group.description || "A private room built around high-context professional decisions."}
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {tags
-                        .filter((tag) => !["Free", "Paid", "Has open seats"].includes(tag))
-                        .slice(0, 3)
-                        .map((tag) => (
-                          <span key={tag} className="rounded-full bg-panel px-3 py-1 text-xs font-medium text-muted">
-                            {tag}
-                          </span>
-                        ))}
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
+                      <span className="rounded-full bg-panel px-3 py-1 text-foreground">
+                        {priceLabel(group.price)}
+                      </span>
+                      <span className="rounded-full bg-panel px-3 py-1">{statusLabel(group.status)}</span>
+                      <span className="rounded-full bg-panel px-3 py-1">{activitySignal}</span>
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Best for</p>
-                        <p className="mt-2 text-sm text-foreground">{oneLine(group.whoFor)}</p>
+                    <p className="text-sm leading-7 text-foreground">
+                      <span className="font-medium">Best for:</span> {oneLine(group.whoFor, 140)}
+                    </p>
+
+                    <div className="grid gap-4 border-y border-line py-4 md:grid-cols-[1fr_1.2fr]">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-10 w-10 place-items-center rounded-full bg-foreground text-xs font-semibold text-white">
+                            {initials(group.owner.name || group.owner.email)}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{peopleSignal}</p>
+                            <p className="text-xs text-muted">{group.owner.name ? group.owner.email : "Room curator"}</p>
+                          </div>
+                        </div>
+                        <div className="flex -space-x-2">
+                          {[group.owner.name || group.owner.email, group.name, group.whoFor].map((value, index) => (
+                            <div
+                              key={`${group.id}-avatar-${index}`}
+                              className="grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-panel text-[10px] font-semibold text-muted"
+                            >
+                              {initials(value)}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Members get</p>
-                        <p className="mt-2 text-sm text-foreground">{oneLine(group.valueProp)}</p>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Recent discussions</p>
+                        <div className="mt-2 space-y-1.5">
+                          {discussions.slice(0, 2).map((discussion) => (
+                            <p key={discussion} className="text-sm text-foreground">
+                              {discussion}
+                            </p>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    <details className="rounded-2xl border border-line bg-panel px-4 py-3">
-                      <summary className="cursor-pointer text-sm font-medium text-foreground">Preview full fit</summary>
+                    <details className="border-b border-line pb-4">
+                      <summary className="cursor-pointer text-sm font-medium text-foreground">View room criteria</summary>
                       <div className="mt-4 grid gap-4 md:grid-cols-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">For</p>
@@ -392,28 +426,24 @@ export default function ExploreGroupsPage() {
                         </div>
                       </div>
                     </details>
-
-                    <p className="text-sm text-muted">
-                      Run by <span className="font-medium text-foreground">{group.owner.name || group.owner.email}</span>
-                    </p>
                   </div>
 
                   <div className="w-full shrink-0 space-y-3 lg:w-56">
                     <Link
+                      href={`/groups/${group.id}`}
+                      className="inline-flex w-full items-center justify-center rounded-full bg-foreground px-4 py-3 text-sm font-medium text-white transition hover:opacity-90"
+                    >
+                      Open preview
+                    </Link>
+                    <Link
                       href={action.href}
                       className={`inline-flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-medium transition ${
                         action.secondary
-                          ? "border border-line bg-white text-foreground hover:border-foreground"
-                          : "bg-foreground text-white hover:opacity-90"
+                          ? "border border-line bg-white text-muted hover:border-foreground hover:text-foreground"
+                          : "border border-line bg-white text-foreground hover:border-foreground"
                       }`}
                     >
                       {action.label}
-                    </Link>
-                    <Link
-                      href={`/groups/${group.id}`}
-                      className="inline-flex w-full items-center justify-center rounded-full border border-line bg-white px-4 py-3 text-sm font-medium text-foreground transition hover:border-foreground"
-                    >
-                      Open room preview
                     </Link>
                     {membership?.status === "waitlist" ? (
                       <p className="text-sm text-muted">You are already in the queue for this room.</p>
