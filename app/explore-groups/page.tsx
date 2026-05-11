@@ -311,6 +311,16 @@ export default function ExploreGroupsPage() {
         <section id="find-room" className="rounded-[20px] border border-line bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold tracking-tight">What kind of room are you missing?</h2>
 
+          <label className="mt-4 block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Search by keyword</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none transition focus:border-foreground"
+              placeholder="AI, property, investing, Warsaw..."
+            />
+          </label>
+
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
             {gapFilters.map((domain) => (
               <button
@@ -410,16 +420,6 @@ export default function ExploreGroupsPage() {
               })}
             </div>
           ) : null}
-
-          <label className="mt-5 block space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Search by keyword</span>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none transition focus:border-foreground"
-              placeholder="AI, property, investing, Warsaw..."
-            />
-          </label>
         </section>
 
         <nav className="sticky bottom-4 grid grid-cols-3 overflow-hidden rounded-full border border-line bg-white p-1 shadow-sm">
