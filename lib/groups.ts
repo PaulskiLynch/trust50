@@ -8,6 +8,8 @@ export const publicUserSelect = Prisma.validator<Prisma.UserSelect>()({
   avatarUrl: true,
   headline: true,
   linkedinUrl: true,
+  trustScoreCached: true,
+  trustLevelCached: true,
   createdAt: true,
 });
 
@@ -18,6 +20,8 @@ export const safeUserSelect = Prisma.validator<Prisma.UserSelect>()({
   avatarUrl: true,
   headline: true,
   linkedinUrl: true,
+  trustScoreCached: true,
+  trustLevelCached: true,
   createdAt: true,
 });
 
@@ -107,6 +111,18 @@ export const groupWithRelations = Prisma.validator<Prisma.GroupDefaultArgs>()({
       },
       orderBy: {
         createdAt: "desc",
+      },
+    },
+    trustLinks: {
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        giverUserId: true,
+        receiverUserId: true,
+        roomId: true,
+        status: true,
       },
     },
   },

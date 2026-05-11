@@ -57,6 +57,13 @@ enum ConversationKind {
   introduction
 }
 
+enum TrustLinkStatus {
+  active
+  soft_decayed
+  expired
+  revoked
+}
+
 model User {
   id                    String         @id @default(cuid())
   email                 String         @unique
@@ -80,6 +87,9 @@ model User {
   phoneNumber           String?
   workEmail             String?
   personalEmail         String?
+  trustScoreCached      Int            @default(0)
+  trustLevelCached      String         @default("Earning Trust")
+  activeRoomCount       Int            @default(0)
   createdAt             DateTime       @default(now())
   ownedGroups           Group[]        @relation("OwnedGroups")
   memberships           Membership[]
@@ -92,6 +102,8 @@ model User {
   conversationsJoined   Conversation[] @relation("ConversationRecipient")
   messagesSent          Message[]
   repliesSent           Reply[]
+  trustGiven            TrustLink[]    @relation("TrustGiven")
+  trustReceived         TrustLink[]    @relation("TrustReceived")
 }
 
 model InterestLead {
@@ -115,6 +127,11 @@ model Group {
   ownerId     String
   owner       User         @relation("OwnedGroups", fields: [ownerId], references: [id])
   price       Int?
+  maxMembers  Int          @default(50)
+  trustDensityCached Decimal @default(0)
+  trustDensityLabelCached String @default("Forming")
+  entryModel  String       @default("invite_only")
+  priceType   String       @default("free")
   status      GroupStatus  @default(draft)
   memberCount Int          @default(0)
   publishedAt DateTime?
@@ -122,6 +139,27 @@ model Group {
   memberships Membership[]
   requests    Request[]
   conversations Conversation[]
+  trustLinks  TrustLink[]
+}
+
+model TrustLink {
+  id             String          @id @default(cuid())
+  giverUserId    String
+  receiverUserId String
+  roomId         String
+  status         TrustLinkStatus @default(active)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  softDecayedAt  DateTime?
+  expiredAt      DateTime?
+  revokedAt      DateTime?
+  giver          User            @relation("TrustGiven", fields: [giverUserId], references: [id], onDelete: Cascade)
+  receiver       User            @relation("TrustReceived", fields: [receiverUserId], references: [id], onDelete: Cascade)
+  room           Group           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([receiverUserId, status])
+  @@index([roomId, status])
+  @@unique([giverUserId, receiverUserId, roomId, status])
 }
 
 model Membership {

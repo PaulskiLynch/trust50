@@ -23,15 +23,13 @@ export async function GET(_: Request, context: RouteContext) {
   const session = await getAuthSession();
   const { id } = await context.params;
 
-  const group = session?.user?.id
-    ? await getGroupById(id, session.user.id)
-    : await getPublicGroupById(id);
-
-  if (!group) {
-    return NextResponse.json({ error: "Group not found" }, { status: 404 });
-  }
-
   if (!session?.user?.id) {
+    const group = await getPublicGroupById(id);
+
+    if (!group) {
+      return NextResponse.json({ error: "Group not found" }, { status: 404 });
+    }
+
     return NextResponse.json({
       ...group,
       memberships: group.memberships.map(({ id, role, status, createdAt }) => ({
@@ -42,7 +40,14 @@ export async function GET(_: Request, context: RouteContext) {
         userId: "",
       })),
       requests: [],
+      trustLinks: [],
     });
+  }
+
+  const group = await getGroupById(id, session.user.id);
+
+  if (!group) {
+    return NextResponse.json({ error: "Group not found" }, { status: 404 });
   }
 
   const viewerMembership = group.memberships.find((membership) => membership.userId === session.user.id);
@@ -69,10 +74,17 @@ export async function GET(_: Request, context: RouteContext) {
         };
       }),
       requests: [],
+      trustLinks: [],
     });
   }
 
-  return NextResponse.json(group);
+  return NextResponse.json({
+    ...group,
+    trustLinks: group.trustLinks.map((link) => ({
+      ...link,
+      giverUserId: link.giverUserId === session.user.id ? link.giverUserId : "",
+    })),
+  });
 }
 
 export async function POST(req: Request, context: RouteContext) {

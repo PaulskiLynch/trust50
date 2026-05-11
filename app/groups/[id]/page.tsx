@@ -16,6 +16,16 @@ type DemoUser = {
   avatarUrl?: string | null;
   linkedinUrl?: string | null;
   workEmail?: string | null;
+  trustScoreCached?: number;
+  trustLevelCached?: string;
+};
+
+type TrustLink = {
+  id: string;
+  giverUserId: string;
+  receiverUserId: string;
+  roomId: string;
+  status: string;
 };
 
 type Introduction = {
@@ -101,6 +111,7 @@ type Group = {
   publishedAt: string | null;
   memberships: Membership[];
   requests: GroupRequest[];
+  trustLinks?: TrustLink[];
   owner?: DemoUser | null;
 };
 
@@ -177,6 +188,10 @@ function getMemberActivityLabel(contributionCount: number) {
   if (contributionCount >= 3) return "Active this week";
   if (contributionCount >= 1) return "Active recently";
   return "Quiet lately";
+}
+
+function displayedTrustCount(credibility: ReturnType<typeof buildCredibilityProfile> | undefined, realTrustCount: number) {
+  return Math.min(Math.max(realTrustCount, credibility?.trustCount ?? 0), 200);
 }
 
 function memberInitials(name?: string | null, email?: string | null) {
@@ -263,6 +278,7 @@ export default function GroupDetailPage({ params }: PageProps) {
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
   const [discussionSearch, setDiscussionSearch] = useState("");
   const [discussionFilter, setDiscussionFilter] = useState<"all" | "open" | "resolved">("all");
+  const [trustSubmittingId, setTrustSubmittingId] = useState<string | null>(null);
 
   useEffect(() => {
     void params.then((value) => setGroupId(value.id));
@@ -530,6 +546,35 @@ export default function GroupDetailPage({ params }: PageProps) {
       router.push(`/conversations/${data.id}`);
     } catch (error) {
       setFlash(error instanceof Error ? error.message : "Unable to open conversation");
+    }
+  }
+
+  async function handleTrustMember(receiverUserId: string, alreadyTrusted: boolean) {
+    if (!group) return;
+
+    setTrustSubmittingId(receiverUserId);
+    setFlash(null);
+
+    try {
+      const response = await fetch(`/api/groups/${group.id}/trust`, {
+        method: alreadyTrusted ? "DELETE" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ receiverUserId }),
+      });
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to update trust.");
+      }
+
+      setFlash(alreadyTrusted ? "Trust removed. No notification was sent." : "Trust added.");
+      await load();
+    } catch (error) {
+      setFlash(error instanceof Error ? error.message : "Unable to update trust.");
+    } finally {
+      setTrustSubmittingId(null);
     }
   }
 
@@ -1127,6 +1172,12 @@ export default function GroupDetailPage({ params }: PageProps) {
                     const conversationId = acceptedConversationByUserId.get(membership.userId);
                     const isNewMember = Date.now() - new Date(membership.createdAt).getTime() < 14 * 24 * 60 * 60 * 1000;
                     const credibility = credibilityByUserId.get(membership.userId);
+                    const realTrustCount = (group.trustLinks ?? []).filter((link) => link.receiverUserId === membership.userId).length;
+                    const trustCount = displayedTrustCount(credibility, realTrustCount);
+                    const alreadyTrusted = (group.trustLinks ?? []).some(
+                      (link) => link.giverUserId === currentUserId && link.receiverUserId === membership.userId,
+                    );
+                    const canTrustMember = !!currentUserId && currentUserId !== membership.userId;
 
                     return (
                       <div key={membership.id} className="rounded-2xl border border-line bg-white px-4 py-3">
@@ -1141,7 +1192,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                                 {isNewMember ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">New</span> : null}
                                 {credibility ? (
                                   <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-medium text-white">
-                                    Trust {credibility.trustCount}
+                                    Trust {trustCount}
                                   </span>
                                 ) : null}
                               </div>
@@ -1151,7 +1202,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                               ) : null}
                               {credibility ? (
                                 <p className="mt-1 text-xs text-muted">
-                                  Trusted by {credibility.trustCount} {credibility.trustCount === 1 ? "person" : "people"}
+                                  Trusted by {trustCount} {trustCount === 1 ? "person" : "people"}
                                 </p>
                               ) : null}
                               {showAllMembers ? (
@@ -1178,6 +1229,16 @@ export default function GroupDetailPage({ params }: PageProps) {
                               </span>
                             ) : null}
                             <div className="flex flex-wrap gap-2 sm:justify-end">
+                              {canTrustMember ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleTrustMember(membership.userId, alreadyTrusted)}
+                                  disabled={trustSubmittingId === membership.userId}
+                                  className="text-xs font-medium text-muted transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {alreadyTrusted ? "✓ You trust" : "Trust this member"}
+                                </button>
+                              ) : null}
                               {conversationId ? (
                                 <Link href={`/conversations/${conversationId}`} className="text-xs font-medium text-muted transition hover:text-foreground">Message</Link>
                               ) : (

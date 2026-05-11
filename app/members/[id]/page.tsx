@@ -134,7 +134,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 decisionHistory: profile.decisionHistory,
                 helpTopics: profile.helpTopics,
                 trustSignals: profile.trustSignals,
-                trustCount: profile.credibility.trustCount,
+                trustCount: Math.max(profile.credibility.trustCount, profile.trustScoreCached),
               }}
             />
           </section>
@@ -183,7 +183,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
               decisionHistory: profile.decisionHistory,
               helpTopics: profile.helpTopics,
               trustSignals: profile.trustSignals,
-              trustCount: profile.credibility.trustCount,
+              trustCount: Math.max(profile.credibility.trustCount, profile.trustScoreCached),
             }}
           />
         </section>

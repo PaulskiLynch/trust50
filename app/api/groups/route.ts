@@ -42,12 +42,19 @@ export async function GET() {
       const canViewPeopleAndContent = group.ownerId === session.user.id || viewerMembership?.status === "active";
 
       if (canViewPeopleAndContent) {
-        return group;
+        return {
+          ...group,
+          trustLinks: group.trustLinks.map((link) => ({
+            ...link,
+            giverUserId: link.giverUserId === session.user.id ? link.giverUserId : "",
+          })),
+        };
       }
 
       return {
         ...group,
         requests: [],
+        trustLinks: [],
         memberships: group.memberships.map((membership) => {
           const isViewer = membership.userId === session.user.id;
 
