@@ -6,13 +6,9 @@ type ProfileUser = {
   id: string;
   name: string | null;
   avatarUrl: string | null;
-  headline: string | null;
-  linkedinUrl: string | null;
-  groupsActiveIn: string[];
-  trustLevel: "New" | "Contributor" | "Trusted";
-  helpfulRepliesCount: number;
-  knownFor: string[];
-  verification: string[];
+  decisionHistory: { title: string; impact: string; groupName?: string }[];
+  helpTopics: string[];
+  trustSignals: string[];
 };
 
 type ProfileCardProps = {
@@ -20,13 +16,6 @@ type ProfileCardProps = {
 };
 
 export function ProfileCard({ user }: ProfileCardProps) {
-  const knownFor = user.knownFor.length
-    ? user.knownFor
-    : ["Early-stage operator", "Warm introductions", "Practical judgment"];
-  const activeRoomLabel = user.groupsActiveIn.length
-    ? user.groupsActiveIn.join(" / ")
-    : "Looking for the first room where they can add value";
-
   return (
     <section className="rounded-3xl border border-line bg-white p-6 shadow-sm">
       <div className="flex items-start gap-4">
@@ -38,50 +27,31 @@ export function ProfileCard({ user }: ProfileCardProps) {
           className="h-16 w-16 rounded-full object-cover"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">{user.name || "Current user"}</h2>
-              <p className="mt-1 text-sm leading-6 text-muted">
-                {user.headline || knownFor.slice(0, 2).join(" / ")}
-              </p>
-            </div>
-            <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
-              {user.trustLevel}
-            </span>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {user.verification.map((signal) => (
-              <span
-                key={signal}
-                className="rounded-full border border-line bg-white px-3 py-1 text-xs font-medium text-muted"
-              >
-                {signal}
-              </span>
-            ))}
-          </div>
-          <p className="mt-3 text-sm text-muted">
-            {user.helpfulRepliesCount > 0
-              ? `${user.helpfulRepliesCount} helpful ${user.helpfulRepliesCount === 1 ? "reply" : "replies"} recently`
-              : "Building reputation through useful context"}
-          </p>
-          <p className="mt-1 text-xs text-muted/80">
-            Trust is earned through replies, intros, vouches, and sponsorships that work out.
+          <h2 className="text-xl font-semibold">{user.name || "Current user"}</h2>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            Here are decisions I have made that other members may be able to use.
           </p>
         </div>
       </div>
 
-      <div className="mt-5 space-y-4">
+      <div className="mt-6 space-y-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Active rooms</p>
-          <div className="mt-2.5 rounded-2xl bg-panel px-4 py-3">
-            <p className="text-sm text-foreground">{activeRoomLabel}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Decisions I&apos;ve Made</p>
+          <div className="mt-4 space-y-4">
+            {user.decisionHistory.map((decision) => (
+              <div key={decision.title} className="border-l border-line pl-4">
+                <p className="text-sm font-medium text-foreground">{decision.title}</p>
+                <p className="mt-1 text-xs text-muted">{decision.impact}</p>
+                {decision.groupName ? <p className="mt-1 text-xs text-muted/80">{decision.groupName}</p> : null}
+              </div>
+            ))}
           </div>
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Known for</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">What I Can Help With</p>
           <div className="mt-2.5 flex flex-wrap gap-2">
-            {knownFor.map((tag) => (
+            {user.helpTopics.map((tag) => (
               <span key={tag} className="rounded-full border border-line bg-white px-3 py-1 text-xs font-medium text-muted">
                 {tag}
               </span>
@@ -90,29 +60,20 @@ export function ProfileCard({ user }: ProfileCardProps) {
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Recent contributions</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Who Trusts Me</p>
           <div className="mt-2.5 space-y-2 rounded-2xl bg-panel px-4 py-3 text-sm text-foreground">
-            <p>{user.helpfulRepliesCount || 0} helpful replies</p>
-            <p>{Math.max(0, user.verification.length - 1)} verified trust signals</p>
-            <p>{user.groupsActiveIn[0] ? `Active in ${user.groupsActiveIn[0]}` : "Ready to contribute in a first room"}</p>
+            {user.trustSignals.map((signal) => (
+              <p key={signal}>{signal}</p>
+            ))}
           </div>
         </div>
 
-        {user.linkedinUrl ? (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Identity</p>
-            <div className="mt-2.5 rounded-2xl bg-panel px-4 py-3">
-              <a
-                href={user.linkedinUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-foreground transition hover:text-muted"
-              >
-                View LinkedIn profile
-              </a>
-            </div>
-          </div>
-        ) : null}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Ask Me About</p>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            These are decisions I have actually made. Start there.
+          </p>
+        </div>
       </div>
     </section>
   );

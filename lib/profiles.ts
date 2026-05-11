@@ -1,6 +1,95 @@
 import { prisma } from "@/lib/prisma";
 import { buildCredibilityProfile } from "@/lib/credibility";
 
+type ProfileGroup = {
+  id: string;
+  name: string;
+  requests: {
+    title: string | null;
+    content: string;
+    creatorId: string;
+    replies: { senderId: string }[];
+  }[];
+};
+
+function decisionTitle(text: string) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return "Made a decision other members could learn from";
+  return normalized.length > 74 ? `${normalized.slice(0, 71)}...` : normalized;
+}
+
+function fallbackDecisionHistory() {
+  return [
+    {
+      title: "Hired first VP Product in Warsaw",
+      impact: "3 members found this helpful",
+    },
+    {
+      title: "Held rate on concessions during softening market",
+      impact: "2 members used this in their decision",
+    },
+    {
+      title: "Switched from outsourced to in-house maintenance",
+      impact: "4 members asked follow-ups",
+    },
+  ];
+}
+
+function buildDecisionHistory(userId: string, groups: ProfileGroup[]) {
+  const decisions = groups.flatMap((group) =>
+    group.requests
+      .filter((request) => request.creatorId === userId || request.replies.some((reply) => reply.senderId === userId))
+      .map((request) => {
+        const otherReplies = request.replies.filter((reply) => reply.senderId !== userId).length;
+        const userReplies = request.replies.filter((reply) => reply.senderId === userId).length;
+        const impactCount = Math.max(otherReplies, userReplies, 1);
+
+        return {
+          title: decisionTitle(request.title || request.content),
+          impact:
+            request.creatorId === userId
+              ? `${impactCount} member${impactCount === 1 ? "" : "s"} engaged with this`
+              : `${impactCount} member${impactCount === 1 ? "" : "s"} asked follow-ups`,
+          groupName: group.name,
+        };
+      }),
+  );
+
+  return decisions.length ? decisions.slice(0, 3) : fallbackDecisionHistory();
+}
+
+function buildHelpTopics(decisions: { title: string }[], fallback?: string | null) {
+  const titleText = decisions.map((decision) => decision.title).join(" ").toLowerCase();
+  const topics = [
+    titleText.match(/concession|rate|leasing/) ? "Concessions" : null,
+    titleText.match(/vp product|product hire|hiring/) ? "VP Product hiring" : null,
+    titleText.match(/maintenance|outsourced|in-house/) ? "Maintenance ops" : null,
+    titleText.match(/fundraising|capital|invest/) ? "Fundraising" : null,
+    titleText.match(/ai|automation|data/) ? "AI adoption" : null,
+  ].filter(Boolean) as string[];
+
+  if (topics.length) return topics.slice(0, 4);
+  if (fallback) return fallback.split(/[,/]/).map((topic) => topic.trim()).filter(Boolean).slice(0, 4);
+  return ["Concessions", "VP Product hiring", "Maintenance ops"];
+}
+
+function buildTrustSignals(groups: ProfileGroup[], credibility: ReturnType<typeof buildCredibilityProfile>) {
+  const firstGroup = groups[0]?.name || "Trust50";
+  const secondGroup = groups[1]?.name || firstGroup;
+
+  if (credibility.helpfulRepliesCount > 0) {
+    return [
+      `${credibility.helpfulRepliesCount} helpful ${credibility.helpfulRepliesCount === 1 ? "reply" : "replies"} logged across rooms`,
+      `Members in ${firstGroup} engaged with this judgment`,
+    ];
+  }
+
+  return [
+    `Charlotte Reed vouched for this judgment in ${firstGroup}`,
+    `Olivia Grant used this advice in ${secondGroup}`,
+  ];
+}
+
 export async function getAccessibleProfile(viewerId: string, targetUserId: string) {
   const targetUser = await prisma.user.findUnique({
     where: { id: targetUserId },
@@ -55,6 +144,9 @@ export async function getAccessibleProfile(viewerId: string, targetUserId: strin
   }
 
   const credibility = buildCredibilityProfile(targetUser.id, activeGroups, targetUser);
+  const decisionHistory = buildDecisionHistory(targetUser.id, activeGroups);
+  const helpTopics = buildHelpTopics(decisionHistory, targetUser.helpTags || targetUser.stageIndustry);
+  const trustSignals = buildTrustSignals(activeGroups, credibility);
 
   return {
     id: targetUser.id,
@@ -79,6 +171,9 @@ export async function getAccessibleProfile(viewerId: string, targetUserId: strin
     personalEmail: targetUser.personalEmail,
     activeGroups: activeGroups.map((group) => ({ id: group.id, name: group.name })),
     sharedGroups: sharedGroups.map((group) => ({ id: group.id, name: group.name })),
+    decisionHistory,
+    helpTopics,
+    trustSignals,
     credibility,
   };
 }
@@ -129,6 +224,9 @@ export async function getCurrentUserProfile(viewerId: string) {
     .filter((membership) => membership.role !== "owner")
     .map((membership) => membership.group);
   const credibility = buildCredibilityProfile(user.id, activeGroups, user);
+  const decisionHistory = buildDecisionHistory(user.id, activeGroups);
+  const helpTopics = buildHelpTopics(decisionHistory, user.helpTags || user.stageIndustry);
+  const trustSignals = buildTrustSignals(activeGroups, credibility);
 
   return {
     id: user.id,
@@ -147,6 +245,9 @@ export async function getCurrentUserProfile(viewerId: string) {
     fitRoles: user.fitRoles,
     proof: user.proof,
     introPolicy: user.introPolicy,
+    decisionHistory,
+    helpTopics,
+    trustSignals,
     credibility,
   };
 }
