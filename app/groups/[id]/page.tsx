@@ -1054,7 +1054,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                                   disabled={trustSubmittingId === membership.userId}
                                   className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                  {alreadyTrusted ? "✓ You trust this member" : "Trust this member"}
+                                  {alreadyTrusted ? "Untrust" : "Trust this member"}
                                 </button>
                               ) : null}
                             </div>
