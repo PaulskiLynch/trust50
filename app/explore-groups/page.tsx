@@ -6,9 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   SAMPLE_ROOM_TAXONOMY,
+  TRUST_TAXONOMY,
   fallbackRoomTaxonomy,
-  taxonomyFilterLabels,
   taxonomySearchText,
+  type RoomTaxonomy,
+  type TrustDomain,
 } from "@/lib/taxonomy";
 
 type User = {
@@ -30,6 +32,7 @@ type Request = {
   outcome?: string | null;
   resolvedAt?: string | null;
   createdAt: string;
+  replies?: unknown[];
 };
 
 type Group = {
@@ -47,25 +50,7 @@ type Group = {
   requests?: Request[];
 };
 
-const filterChips = [
-  "All",
-  ...taxonomyFilterLabels(),
-  "Free",
-  "Paid",
-  "Has open seats",
-];
-
-const roomTagMap: Record<string, string[]> = {
-  "group-founders": ["Professional", "Startups"],
-  "group-operators": ["Professional", "Operators"],
-  "group-women-pharma": ["Professional", "Healthcare"],
-  "group-digital-pharma": ["Professional", "Healthcare"],
-  "group-health-ai": ["Learning", "AI Skills"],
-  "group-property-management": ["Professional", "Real Estate"],
-  "group-investments": ["Investing"],
-  "group-dog-training": ["Pursuits", "Creative Practice"],
-  "group-music-production": ["Pursuits", "Creative Practice"],
-};
+const preferredGapDomains: TrustDomain[] = ["Local", "Learning", "Family", "Wellness", "Pursuits"];
 
 const searchAliases: Record<string, string[]> = {
   "group-women-pharma": ["pharma", "health", "clinical", "medical", "biotech"],
@@ -78,16 +63,7 @@ const searchAliases: Record<string, string[]> = {
 };
 
 function priceLabel(price: number | null) {
-  return price && price > 0 ? `EUR ${price}/month` : "Free";
-}
-
-function initials(value: string | null | undefined) {
-  const source = value?.trim() || "Trust50";
-  return source
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
+  return price && price > 0 ? `EUR ${price}/mo` : "Free";
 }
 
 function getMembership(group: Group, userId: string | null) {
@@ -95,74 +71,58 @@ function getMembership(group: Group, userId: string | null) {
   return group.memberships.find((membership) => membership.userId === userId) ?? null;
 }
 
-function oneLine(value: string, limit = 96) {
-  const compact = value.replace(/\s+/g, " ").trim();
-  return compact.length > limit ? `${compact.slice(0, limit - 3)}...` : compact;
-}
-
-function getRoomTaxonomy(group: Group) {
+function getRoomTaxonomy(group: Group): RoomTaxonomy {
   return SAMPLE_ROOM_TAXONOMY[group.id] ?? fallbackRoomTaxonomy(`${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`);
 }
 
-function recentAsks(group: Group) {
-  const text = `${group.id} ${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`.toLowerCase();
+function roomActivity(group: Group, currentUserId: string | null) {
+  const membership = getMembership(group, currentUserId);
+  if (!membership || membership.status !== "active") return "Preview only";
 
-  if (text.match(/pharma|health|clinical|medical|biotech/)) {
-    return ["AI adoption inside regulated teams", "Clinical workflow buy-in", "Evidence that moves committees"];
-  }
+  const openRequests = (group.requests ?? []).filter((request) => request.status === "open");
+  const pendingMembers = group.memberships.filter((entry) => entry.status === "pending").length;
 
-  if (text.match(/invest|fund|capital|cfo|finance|risk/)) {
-    return ["Underwriting the risk others missed", "Warm CFO paths", "When to pass on a deal"];
-  }
-
-  if (text.match(/warsaw|founder|startup|series|product|hiring/)) {
-    return ["First senior hire in Warsaw", "Founder-led GTM", "When advisors become noise"];
-  }
-
-  if (text.match(/property|management|ops|operator/)) {
-    return ["Promoting strong onsite managers", "Concessions versus hold rate", "Overflow maintenance models"];
-  }
-
-  if (text.match(/creative|music|audio|producer|sync/)) {
-    return ["Pricing creative retainers", "Sync deal quality", "Trusted collaborator lists"];
-  }
-
-  return ["Warm intros that worked", "Decisions members are facing", "Who can help this week"];
+  if (pendingMembers) return `${pendingMembers} candidate${pendingMembers === 1 ? "" : "s"} need vouches`;
+  if (openRequests.length) return `${openRequests.length} signal${openRequests.length === 1 ? "" : "s"} need you`;
+  return "Quiet";
 }
 
-function fitSignal(group: Group, tags: string[], activeFilter: string, query: string, waitingCount: number) {
-  const normalizedQuery = query.trim().toLowerCase();
-
-  if (waitingCount >= 30) return "Hard to enter";
-  if (activeFilter !== "All" && tags.includes(activeFilter)) return "Strong fit";
-  if (normalizedQuery && `${group.name} ${group.description || ""} ${tags.join(" ")}`.toLowerCase().includes(normalizedQuery)) {
-    return "Likely fit";
-  }
-  if (tags.includes("Founder/operator")) return "Founder-heavy";
-  if (tags.includes("Pharma/health")) return "Specialist room";
-  return "Selective";
-}
-
-function groupTags(group: Group) {
-  const text = `${group.id} ${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`.toLowerCase();
-  const tags = new Set<string>();
+function connectionLabel(group: Group, memberRooms: Group[]) {
   const taxonomy = getRoomTaxonomy(group);
+  const relatedRooms = memberRooms.filter((room) => {
+    const roomTaxonomy = getRoomTaxonomy(room);
+    return roomTaxonomy.domain === taxonomy.domain || roomTaxonomy.category === taxonomy.category;
+  }).length;
 
-  roomTagMap[group.id]?.forEach((tag) => tags.add(tag));
-  tags.add(taxonomy.domain);
-  tags.add(taxonomy.category);
+  if (relatedRooms === 0) return "New edge for your network";
+  return `${relatedRooms} of your room${relatedRooms === 1 ? "" : "s"} connect here`;
+}
 
-  if (text.match(/founder|operator|startup|series|product|hiring|growth/)) tags.add("Founder/operator");
-  if (text.match(/pharma|health|clinical|medical|biotech|ai/)) tags.add("Pharma/health");
-  if (text.match(/creative|music|audio|producer|sync|dog|training/)) tags.add("Creative");
-  if (text.match(/warsaw|berlin|paris|latam|europe|local|property/)) tags.add("Local");
-  if (text.match(/invest|fund|capital|cfo|finance|risk/)) tags.add("Investing");
-  if (text.match(/ops|professional|services|management|regulatory|data/)) tags.add("Professional services");
+function shortSpecialty(taxonomy: RoomTaxonomy) {
+  const specialty = taxonomy.specialty.replace(/\s+/g, " ").trim();
+  return specialty.length > 54 ? `${specialty.slice(0, 51)}...` : specialty;
+}
 
-  tags.add(group.price && group.price > 0 ? "Paid" : "Free");
-  if (group.memberCount < 50) tags.add("Has open seats");
+function ordinal(value: number) {
+  if (value === 1) return "1st";
+  if (value === 2) return "2nd";
+  if (value === 3) return "3rd";
+  return `${value}th`;
+}
 
-  return [...tags];
+function suggestionScore(group: Group, memberRooms: Group[], activeFilter: string) {
+  const taxonomy = getRoomTaxonomy(group);
+  const memberDomains = new Set(memberRooms.map((room) => getRoomTaxonomy(room).domain));
+  const memberCategories = new Set(memberRooms.map((room) => getRoomTaxonomy(room).category));
+  let score = 0;
+
+  if (taxonomy.domain === activeFilter || taxonomy.category === activeFilter) score += 50;
+  if (!memberDomains.has(taxonomy.domain)) score += 25;
+  if (memberCategories.has(taxonomy.category)) score += 15;
+  if (!group.price || group.price <= 0) score += 8;
+  score += Math.max(0, 50 - group.memberCount) / 10;
+
+  return score;
 }
 
 export default function ExploreGroupsPage() {
@@ -171,18 +131,10 @@ export default function ExploreGroupsPage() {
   const [flash, setFlash] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState("All");
+  const [activeFilter, setActiveFilter] = useState<TrustDomain | "All">("All");
 
   const currentUserId = session?.user?.id ?? null;
-
-  const activeMemberSlotsUsed = useMemo(
-    () =>
-      groups.filter((group) => {
-        const membership = getMembership(group, currentUserId);
-        return membership?.status === "active" && membership.role !== "owner";
-      }).length,
-    [currentUserId, groups],
-  );
+  const displayName = session?.user?.name || session?.user?.email?.split("@")[0] || "Member";
 
   useEffect(() => {
     void (async () => {
@@ -206,82 +158,76 @@ export default function ExploreGroupsPage() {
     })();
   }, []);
 
-  const liveGroups = useMemo(
+  const memberRooms = useMemo(
     () =>
       groups.filter((group) => {
-        if (!(group.status === "active" || group.status === "emerging")) return false;
-
         const membership = getMembership(group, currentUserId);
-        return !(membership?.status === "active");
+        return membership?.status === "active" && membership.role !== "owner";
       }),
     [currentUserId, groups],
   );
 
-  const filteredGroups = useMemo(() => {
+  const memberDomains = useMemo(
+    () => new Set(memberRooms.map((group) => getRoomTaxonomy(group).domain)),
+    [memberRooms],
+  );
+
+  const gapFilters = useMemo(() => {
+    const missing = preferredGapDomains.filter((domain) => !memberDomains.has(domain));
+    const fallback = TRUST_TAXONOMY.map((node) => node.domain).filter((domain) => !missing.includes(domain));
+    return [...missing, ...fallback].slice(0, 5);
+  }, [memberDomains]);
+
+  const suggestedGroups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return liveGroups.filter((group) => {
-      const tags = groupTags(group);
-      const matchesFilter = activeFilter === "All" || tags.includes(activeFilter);
-      const aliases = searchAliases[group.id]?.join(" ") || "";
-      const taxonomy = getRoomTaxonomy(group);
-      const haystack = `${group.id} ${group.name} ${group.owner.name || ""} ${group.owner.email} ${group.description || ""} ${group.whoFor} ${group.whoNotFor} ${group.valueProp} ${tags.join(" ")} ${taxonomySearchText(taxonomy)} ${aliases}`.toLowerCase();
-      const matchesQuery = !normalizedQuery || haystack.includes(normalizedQuery);
+    return groups
+      .filter((group) => group.status === "active" || group.status === "emerging")
+      .filter((group) => getMembership(group, currentUserId)?.status !== "active")
+      .filter((group) => group.id !== "group-women-pharma")
+      .filter((group) => {
+        const taxonomy = getRoomTaxonomy(group);
+        const aliases = searchAliases[group.id]?.join(" ") || "";
+        const haystack = `${group.name} ${group.owner.name || ""} ${group.description || ""} ${group.whoFor} ${group.valueProp} ${taxonomySearchText(taxonomy)} ${aliases}`.toLowerCase();
+        const matchesQuery = !normalizedQuery || haystack.includes(normalizedQuery);
+        const matchesFilter = activeFilter === "All" || taxonomy.domain === activeFilter || taxonomy.category === activeFilter;
 
-      return matchesFilter && matchesQuery;
-    });
-  }, [activeFilter, liveGroups, query]);
+        return matchesQuery && matchesFilter;
+      })
+      .sort((left, right) => suggestionScore(right, memberRooms, activeFilter) - suggestionScore(left, memberRooms, activeFilter))
+      .slice(0, 5);
+  }, [activeFilter, currentUserId, groups, memberRooms, query]);
+
+  const excludedRooms = useMemo(
+    () =>
+      groups
+        .filter((group) => group.id === "group-women-pharma")
+        .filter((group) => getMembership(group, currentUserId)?.status !== "active"),
+    [currentUserId, groups],
+  );
 
   return (
-    <main className="min-h-screen bg-background px-6 py-12 text-foreground">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex items-center justify-between gap-4 text-sm text-muted">
-          <p>Explore rooms</p>
-          <Link href={currentUserId ? "/" : "/landing"} className="font-medium transition hover:text-foreground">
-            {currentUserId ? "Back to Wire" : "Back to landing page"}
-          </Link>
-        </div>
-
-        <section className="rounded-[24px] border border-line bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-3xl space-y-3">
-              <h1 className="text-3xl font-semibold tracking-tight">Find the rooms worth one of your four slots</h1>
-              <p className="text-sm leading-7 text-muted">
-                Browse live Trust50 rooms by fit, activity, and how hard they are to enter.
-              </p>
-            </div>
-            <div className="shrink-0 rounded-full border border-line bg-panel px-4 py-2 text-sm font-medium text-foreground">
-              {activeMemberSlotsUsed}/4 slots used
-            </div>
+    <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-2xl space-y-5">
+        <header className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Trust50</p>
+            <p className="truncate text-sm text-muted">{displayName}</p>
           </div>
-        </section>
-
-        <section className="sticky top-4 z-10 rounded-[20px] border border-line bg-white/95 p-4 shadow-sm backdrop-blur">
-          <label className="block">
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none transition focus:border-foreground"
-              placeholder="Search rooms by decision, industry, city, or role"
-            />
-          </label>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {filterChips.map((chip) => (
-              <button
-                key={chip}
-                type="button"
-                onClick={() => setActiveFilter(chip)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                  activeFilter === chip
-                    ? "bg-foreground text-white"
-                    : "border border-line bg-white text-muted hover:border-foreground hover:text-foreground"
-                }`}
-              >
-                {chip}
-              </button>
-            ))}
-          </div>
-        </section>
+          <nav className="flex items-center gap-1 text-xs font-medium">
+            <Link href="/" className="rounded-xl px-3 py-2 text-muted transition hover:bg-panel hover:text-foreground">
+              Wire
+            </Link>
+            <Link href="/explore-groups" className="rounded-xl bg-foreground px-3 py-2 text-white">
+              Rooms
+            </Link>
+            {currentUserId ? (
+              <Link href={`/members/${currentUserId}`} className="rounded-xl px-3 py-2 text-muted transition hover:bg-panel hover:text-foreground">
+                Me
+              </Link>
+            ) : null}
+          </nav>
+        </header>
 
         {flash ? (
           <div className="rounded-2xl border border-line bg-white px-5 py-3 text-sm text-muted shadow-sm">
@@ -290,203 +236,184 @@ export default function ExploreGroupsPage() {
         ) : null}
 
         {!currentUserId && status !== "loading" ? (
-          <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
-            <p className="text-sm text-muted">
-              Sign in to request access, track your queue status, or start a room of your own.
-            </p>
+          <section className="rounded-[20px] border border-line bg-white p-5 shadow-sm">
+            <p className="text-sm text-muted">Sign in to see your slots and suggested rooms.</p>
             <div className="mt-3 flex flex-wrap gap-3">
-              <Link
-                href="/"
-                className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-              >
+              <Link href="/" className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90">
                 Sign in
               </Link>
-              <Link
-                href="/register"
-                className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
-              >
+              <Link href="/register" className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground">
                 Create account
               </Link>
             </div>
           </section>
         ) : null}
 
-        <section className="space-y-4">
-          {loading ? (
-            <div className="rounded-[28px] border border-line bg-white px-6 py-8 text-sm text-muted shadow-sm">
-              Loading rooms...
+        <section className="rounded-[20px] border border-line bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Your slots</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">{memberRooms.length}/4 rooms used</h1>
             </div>
-          ) : null}
+            <span className="rounded-full bg-panel px-3 py-1.5 text-xs font-medium text-muted">
+              Fill the gap
+            </span>
+          </div>
 
-          {!loading && !filteredGroups.length ? (
-            <div className="rounded-[28px] border border-line bg-white px-6 py-8 text-sm text-muted shadow-sm">
-              No rooms match that search yet.
-            </div>
-          ) : null}
+          <div className="mt-5 space-y-3">
+            {loading ? (
+              <div className="rounded-2xl border border-line bg-panel px-4 py-4 text-sm text-muted">Loading rooms...</div>
+            ) : null}
 
-          {filteredGroups.map((group) => {
-            const membership = getMembership(group, currentUserId);
-            const waitlistCount = group.memberships.filter((entry) => entry.status === "waitlist").length;
-            const pendingCount = group.memberships.filter((entry) => entry.status === "pending").length;
-            const outcomesThisMonth = (group.requests ?? []).filter(
-              (request) =>
-                request.status !== "open" &&
-                request.outcome &&
-                Date.now() - new Date(request.resolvedAt || request.createdAt).getTime() < 30 * 24 * 60 * 60 * 1000,
-            ).length;
-            const activeThreadCount = (group.requests ?? []).filter((request) => request.status === "open").length;
-            const slotsFull = activeMemberSlotsUsed >= 4;
-            const tags = groupTags(group);
-            const taxonomy = getRoomTaxonomy(group);
-            const waitingCount = waitlistCount + pendingCount;
-            const difficultySignal = waitlistCount || pendingCount ? `${waitlistCount + pendingCount} waiting` : "Open seats";
-            const activitySignal =
-              activeThreadCount >= 3
-                ? "4 conversations today"
-                : outcomesThisMonth
-                  ? `${outcomesThisMonth} outcomes this month`
-                  : group.status === "active"
-                    ? "Fast replies"
-                    : "New room";
-            const peopleSignal = `Run by ${group.owner.name || group.owner.email}`;
-            const asks = recentAsks(group);
-            const roomFitSignal = fitSignal(group, tags, activeFilter, query, waitingCount);
+            {!loading && !memberRooms.length ? (
+              <div className="rounded-2xl border border-line bg-panel px-4 py-4 text-sm text-muted">
+                No rooms yet. Start with one room where your context can actually help.
+              </div>
+            ) : null}
 
-            let action: { href: string; label: string; secondary?: boolean };
-
-            if (membership?.role === "owner") {
-              action = { href: `/owner/groups/${group.id}`, label: "Manage room" };
-            } else if (membership?.status === "active") {
-              action = { href: `/groups/${group.id}`, label: "Open room" };
-            } else if (membership?.status === "pending") {
-              action = { href: `/groups/${group.id}/votes`, label: "View member review", secondary: true };
-            } else if (membership?.status === "waitlist") {
-              action = { href: `/groups/${group.id}/apply`, label: "View application", secondary: true };
-            } else if (slotsFull) {
-              action = { href: "/", label: "4/4 slots used", secondary: true };
-            } else {
-              action = { href: `/groups/${group.id}/apply`, label: "Request access" };
-            }
-
-            return (
-              <article key={group.id} className="rounded-[24px] border border-line bg-white p-6 shadow-sm">
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-3xl space-y-5">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <h2 className="text-2xl font-semibold tracking-tight text-foreground">{group.name}</h2>
-                        <span className="text-sm text-muted">
-                          {group.memberCount}/50 members / {difficultySignal}
-                        </span>
-                      </div>
-                      <p className="text-sm leading-7 text-muted">
-                        {group.description || "A private room built around high-context professional decisions."}
-                      </p>
-                      <p className="text-xs font-medium text-muted">
-                        {taxonomy.domain} / {taxonomy.category} / {taxonomy.specialty}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
-                      <span className="rounded-full bg-panel px-3 py-1 text-foreground">
-                        {priceLabel(group.price)}
-                      </span>
-                      <span className="rounded-full bg-panel px-3 py-1">{roomFitSignal}</span>
-                      <span className="rounded-full bg-panel px-3 py-1">{activitySignal}</span>
-                    </div>
-
-                    <p className="text-sm leading-7 text-foreground">
-                      <span className="font-medium">Best for:</span> {oneLine(group.whoFor, 140)}
+            {memberRooms.map((group) => (
+              <Link
+                key={group.id}
+                href={`/groups/${group.id}`}
+                className="block rounded-2xl border border-line bg-panel px-4 py-3 transition hover:border-foreground"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{group.name}</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {priceLabel(group.price)} / {group.memberCount} members
                     </p>
-                    <p className="text-sm leading-6 text-muted">
-                      Trust test: {taxonomy.trustTest}
-                    </p>
-
-                    <div className="grid gap-4 border-y border-line py-4 md:grid-cols-[1fr_1.2fr]">
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <div className="grid h-10 w-10 place-items-center rounded-full bg-foreground text-xs font-semibold text-white">
-                            {initials(group.owner.name || group.owner.email)}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{peopleSignal}</p>
-                            <p className="text-xs text-muted">{group.owner.name ? group.owner.email : "Room curator"}</p>
-                          </div>
-                        </div>
-                        <div className="flex -space-x-2">
-                          {[group.owner.name || group.owner.email, group.name, group.whoFor].map((value, index) => (
-                            <div
-                              key={`${group.id}-avatar-${index}`}
-                              className="grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-panel text-[10px] font-semibold text-muted"
-                            >
-                              {initials(value)}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Recent asks</p>
-                        <div className="mt-2 space-y-1.5">
-                          {asks.slice(0, 2).map((ask) => (
-                            <p key={ask} className="text-sm text-foreground">
-                              {ask}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <details className="border-b border-line pb-4">
-                      <summary className="cursor-pointer text-sm font-medium text-foreground">Entry criteria</summary>
-                      <div className="mt-4 grid gap-4 md:grid-cols-3">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">For</p>
-                          <p className="mt-2 text-sm leading-6 text-foreground">{group.whoFor}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Not for</p>
-                          <p className="mt-2 text-sm leading-6 text-foreground">{group.whoNotFor}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">What members get</p>
-                          <p className="mt-2 text-sm leading-6 text-foreground">{group.valueProp}</p>
-                        </div>
-                      </div>
-                    </details>
                   </div>
-
-                  <div className="w-full shrink-0 space-y-3 lg:w-56">
-                    <Link
-                      href={`/groups/${group.id}`}
-                      className="inline-flex w-full items-center justify-center rounded-full bg-foreground px-4 py-3 text-sm font-medium text-white transition hover:opacity-90"
-                    >
-                      Preview room
-                    </Link>
-                    <Link
-                      href={action.href}
-                      className={`inline-flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-medium transition ${
-                        action.secondary
-                          ? "border border-line bg-white text-muted hover:border-foreground hover:text-foreground"
-                          : "border border-line bg-white text-foreground hover:border-foreground"
-                      }`}
-                    >
-                      {action.label}
-                    </Link>
-                    {membership?.status === "waitlist" ? (
-                      <p className="text-sm text-muted">You are already in the queue for this room.</p>
-                    ) : null}
-                    {membership?.status === "pending" ? (
-                      <p className="text-sm text-muted">Your application is in active review now.</p>
-                    ) : null}
-                    {!membership && slotsFull ? (
-                      <p className="text-sm text-muted">Leave one of your current rooms before requesting access here.</p>
-                    ) : null}
-                  </div>
+                  <p className="shrink-0 text-right text-xs font-medium text-muted">{roomActivity(group, currentUserId)}</p>
                 </div>
-              </article>
-            );
-          })}
+              </Link>
+            ))}
+
+            {memberRooms.length < 4 ? (
+              <button
+                type="button"
+                onClick={() => document.getElementById("find-room")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="w-full rounded-2xl border border-dashed border-line bg-white px-4 py-4 text-left text-sm font-medium text-foreground transition hover:border-foreground"
+              >
+                + Add {memberRooms.length ? "next" : "first"} room
+              </button>
+            ) : null}
+
+            <Link
+              href="/start-a-group"
+              className="block rounded-2xl border border-dashed border-line bg-white px-4 py-4 text-sm font-medium text-foreground transition hover:border-foreground"
+            >
+              + Start a new room
+            </Link>
+          </div>
         </section>
+
+        <section id="find-room" className="rounded-[20px] border border-line bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Find your {ordinal(Math.min(memberRooms.length + 1, 4))} room</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight">What kind of room are you missing?</h2>
+
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            {gapFilters.map((domain) => (
+              <button
+                key={domain}
+                type="button"
+                onClick={() => setActiveFilter(domain)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  activeFilter === domain
+                    ? "bg-foreground text-white"
+                    : "border border-line bg-white text-muted hover:border-foreground hover:text-foreground"
+                }`}
+              >
+                {domain}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {suggestedGroups.map((group) => {
+              const membership = getMembership(group, currentUserId);
+              const taxonomy = getRoomTaxonomy(group);
+              const actionLabel =
+                membership?.status === "waitlist"
+                  ? "In queue"
+                  : membership?.status === "pending"
+                    ? "In review"
+                    : "Request";
+
+              return (
+                <article key={group.id} className="rounded-2xl border border-line bg-panel px-4 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-base font-semibold text-foreground">{group.name}</h3>
+                      <p className="mt-1 text-sm text-muted">
+                        {priceLabel(group.price)} / {group.memberCount}/50
+                      </p>
+                      <p className="mt-2 text-sm text-foreground">
+                        {taxonomy.category} - {shortSpecialty(taxonomy)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        {group.owner.name || group.owner.email} / {connectionLabel(group, memberRooms)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col gap-2">
+                      <Link
+                        href={`/groups/${group.id}`}
+                        className="rounded-full bg-foreground px-4 py-2 text-center text-sm font-medium text-white transition hover:opacity-90"
+                      >
+                        Preview
+                      </Link>
+                      <Link
+                        href={membership ? `/groups/${group.id}/apply` : `/groups/${group.id}/apply`}
+                        className="rounded-full border border-line bg-white px-4 py-2 text-center text-sm font-medium text-foreground transition hover:border-foreground"
+                      >
+                        {actionLabel}
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+
+            {!loading && !suggestedGroups.length ? (
+              <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-5 text-sm text-muted">
+                No suggested rooms match that gap yet. Try keyword search or start the room yourself.
+              </div>
+            ) : null}
+          </div>
+
+          {excludedRooms.length ? (
+            <div className="mt-5 rounded-2xl border border-line bg-white px-4 py-3 text-sm text-muted">
+              <p className="font-medium text-foreground">Hidden from suggestions</p>
+              <p className="mt-1">Some rooms are omitted when your profile does not match their entry signal.</p>
+            </div>
+          ) : null}
+
+          <label className="mt-5 block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Search by keyword</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none transition focus:border-foreground"
+              placeholder="AI, property, investing, Warsaw..."
+            />
+          </label>
+        </section>
+
+        <nav className="sticky bottom-4 grid grid-cols-3 overflow-hidden rounded-full border border-line bg-white p-1 shadow-sm">
+          <Link href="/" className="rounded-full px-4 py-2 text-center text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground">
+            Wire
+          </Link>
+          <Link href="/explore-groups" className="rounded-full bg-foreground px-4 py-2 text-center text-sm font-medium text-white">
+            Rooms
+          </Link>
+          {currentUserId ? (
+            <Link href={`/members/${currentUserId}`} className="rounded-full px-4 py-2 text-center text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground">
+              Me
+            </Link>
+          ) : (
+            <span className="rounded-full px-4 py-2 text-center text-sm font-medium text-muted">Me</span>
+          )}
+        </nav>
       </div>
     </main>
   );
