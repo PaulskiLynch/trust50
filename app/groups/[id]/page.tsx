@@ -6,8 +6,6 @@ import { GroupStatus } from "@prisma/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
-import { buildCredibilityProfile } from "@/lib/credibility";
-
 type DemoUser = {
   id: string;
   email: string;
@@ -133,18 +131,6 @@ const statusClasses: Record<GroupStatus, string> = {
   active: "bg-emerald-100 text-emerald-800",
 };
 
-const roomPatrons: Record<string, { name: string; since: string }[]> = {
-  "group-operators": [
-    { name: "Alex Morgan", since: "Sept" },
-    { name: "Sara Holt", since: "Oct" },
-    { name: "Charlotte Reed", since: "Nov" },
-  ],
-  "group-property-management": [
-    { name: "Olivia Grant", since: "Sept" },
-    { name: "Sam Patel", since: "Oct" },
-  ],
-};
-
 function getRoomPriceLabel(group: Group) {
   return group.price && group.price > 0 ? `EUR ${group.price}/mo` : "Free room";
 }
@@ -188,19 +174,6 @@ function getMemberActivityLabel(contributionCount: number) {
   if (contributionCount >= 3) return "Active this week";
   if (contributionCount >= 1) return "Active recently";
   return "Quiet lately";
-}
-
-function displayedTrustCount(credibility: ReturnType<typeof buildCredibilityProfile> | undefined, realTrustCount: number) {
-  return Math.min(Math.max(realTrustCount, credibility?.trustCount ?? 0), 200);
-}
-
-function trustTierLabel(score: number) {
-  if (score >= 200) return "Mythical Unicorn";
-  if (score >= 151) return "Exceptional";
-  if (score >= 101) return "Deeply Trusted";
-  if (score >= 51) return "Respected";
-  if (score >= 21) return "Trusted";
-  return "Earning Trust";
 }
 
 function memberInitials(name?: string | null, email?: string | null) {
@@ -349,7 +322,6 @@ export default function GroupDetailPage({ params }: PageProps) {
     () => waitingListMembers.filter((membership) => membership.status === "pending"),
     [waitingListMembers],
   );
-  const patrons = useMemo(() => (group ? roomPatrons[group.id] ?? [] : []), [group]);
   const isFreeRoom = !group?.price || group.price <= 0;
   const scholarshipSeats = group?.price && group.price > 0 ? 3 : 0;
 
@@ -419,28 +391,6 @@ export default function GroupDetailPage({ params }: PageProps) {
     () => visibleOpenRequests.filter((request) => request.replies.length === 0),
     [visibleOpenRequests],
   );
-
-  const credibilityByUserId = useMemo(() => {
-    if (!group) return new Map<string, ReturnType<typeof buildCredibilityProfile>>();
-
-    const uniqueUsers = new Map<string, DemoUser | null>();
-    group.memberships.forEach((membership) => {
-      uniqueUsers.set(membership.userId, membership.user || null);
-    });
-    group.requests.forEach((request) => {
-      if (request.creatorId) uniqueUsers.set(request.creatorId, request.creator || uniqueUsers.get(request.creatorId) || null);
-      request.replies.forEach((reply) => {
-        uniqueUsers.set(reply.senderId, reply.sender || uniqueUsers.get(reply.senderId) || null);
-      });
-    });
-
-    return new Map(
-      [...uniqueUsers.entries()].map(([userId, user]) => [
-        userId,
-        buildCredibilityProfile(userId, [group], user || undefined),
-      ]),
-    );
-  }, [group]);
 
   async function handleCreateRequest() {
     if (!group || !requestContent.trim()) {
@@ -946,40 +896,26 @@ export default function GroupDetailPage({ params }: PageProps) {
             ) : null}
             {roomTab === "about" ? (
             <aside className="min-w-0 space-y-6 lg:col-span-2">
-              {isFreeRoom ? (
-                <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
-                  <h2 className="text-xl font-semibold">Patrons</h2>
-                  <p className="mt-1 text-sm text-muted">
-                    This room costs EUR 0/mo thanks to member patrons. Patrons get recognition, not special access.
-                  </p>
-
-                  <div className="mt-5 space-y-3">
-                    {patrons.length ? (
-                      patrons.map((patron) => (
-                        <div key={patron.name} className="rounded-2xl border border-line bg-white px-4 py-3">
-                          <p className="font-medium text-foreground">{patron.name}</p>
-                          <p className="mt-1 text-sm text-muted">Patron since {patron.since}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-line bg-white px-4 py-4 text-sm text-muted">
-                        Be the first patron to keep this room open.
-                      </div>
-                    )}
+              <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
+                <h2 className="text-xl font-semibold">About this room</h2>
+                <p className="mt-2 text-sm text-muted">{group.description || "No description added yet."}</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-line bg-white px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">Curator</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">{group.owner?.name || group.owner?.email || "Curator"}</p>
                   </div>
+                  <div className="rounded-2xl border border-line bg-white px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">Entry</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">Invite or vouch required</p>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-white px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">Price</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">{getRoomPriceLabel(group)}</p>
+                  </div>
+                </div>
+              </section>
 
-                  <button
-                    type="button"
-                    onClick={() => setFlash("Patron checkout is coming next. Your interest is noted.")}
-                    className="mt-5 w-full rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-                  >
-                    Become a patron - EUR 10/mo
-                  </button>
-                  <p className="mt-3 text-xs text-muted">
-                    Curators receive 80% of patron contributions so free rooms can stay alive.
-                  </p>
-                </section>
-              ) : (
+              {!isFreeRoom ? (
                 <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
                   <h2 className="text-xl font-semibold">Scholarship Seats</h2>
                   <p className="mt-1 text-sm text-muted">
@@ -1000,7 +936,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                     Apply privately
                   </button>
                 </section>
-              )}
+              ) : null}
 
               {!isFreeRoom ? (
                 <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
@@ -1049,16 +985,25 @@ export default function GroupDetailPage({ params }: PageProps) {
                       return count + replyCount + introCount;
                     }, 0);
                     const isNewMember = Date.now() - new Date(membership.createdAt).getTime() < 14 * 24 * 60 * 60 * 1000;
-                    const credibility = credibilityByUserId.get(membership.userId);
-                    const realTrustCount = (group.trustLinks ?? []).filter((link) => link.receiverUserId === membership.userId).length;
-                    const trustCount = displayedTrustCount(credibility, realTrustCount);
                     const alreadyTrusted = (group.trustLinks ?? []).some(
                       (link) => link.giverUserId === currentUserId && link.receiverUserId === membership.userId,
                     );
                     const canTrustMember = !!currentUserId && currentUserId !== membership.userId;
 
                     return (
-                      <div key={membership.id} className="rounded-2xl border border-line bg-white px-4 py-3">
+                      <div
+                        key={membership.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => router.push(`/members/${membership.userId}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            router.push(`/members/${membership.userId}`);
+                          }
+                        }}
+                        className="cursor-pointer rounded-2xl border border-line bg-white px-4 py-3 transition hover:border-foreground"
+                      >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex min-w-0 items-start gap-3">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-stone-100 text-xs font-semibold text-stone-700">
@@ -1066,19 +1011,12 @@ export default function GroupDetailPage({ params }: PageProps) {
                             </div>
                             <div className="min-w-0">
                               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                <Link href={`/members/${membership.userId}`} className="truncate font-medium transition hover:text-muted">
+                                <p className="truncate font-medium text-foreground">
                                   {membership.user?.name || membership.user?.email || membership.userId}
-                                </Link>
+                                </p>
                                 {isNewMember ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">New</span> : null}
-                                {credibility ? (
-                                  <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-medium text-white">
-                                    Trust {trustCount}
-                                  </span>
-                                ) : null}
                               </div>
-                              <p className="mt-1 text-sm text-muted">
-                                Trusted by {trustCount} {trustCount === 1 ? "member" : "members"} · {trustTierLabel(trustCount)}
-                              </p>
+                              <p className="mt-1 text-sm text-muted">{membership.user?.headline || "Member of this room"}</p>
                               {showAllMembers ? (
                                 <>
                                   <p className="mt-1 text-xs text-muted">Member since {formatJoinedLabel(membership.createdAt)}</p>
@@ -1090,10 +1028,29 @@ export default function GroupDetailPage({ params }: PageProps) {
 
                           <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
                             <div className="flex flex-wrap gap-2 sm:justify-end">
+                              <button
+                                type="button"
+                                aria-label={`Message ${membership.user?.name || membership.user?.email || "member"}`}
+                                title="Message"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setFlash("Messaging is coming next.");
+                                }}
+                                onKeyDown={(event) => event.stopPropagation()}
+                                className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-white text-muted transition hover:border-foreground hover:text-foreground"
+                              >
+                                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                  <path d="M4.5 7.5A3.5 3.5 0 0 1 8 4h8a3.5 3.5 0 0 1 3.5 3.5v5A3.5 3.5 0 0 1 16 16h-3.5L8 20v-4A3.5 3.5 0 0 1 4.5 12.5z" />
+                                </svg>
+                              </button>
                               {canTrustMember ? (
                                 <button
                                   type="button"
-                                  onClick={() => void handleTrustMember(membership.userId, alreadyTrusted)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void handleTrustMember(membership.userId, alreadyTrusted);
+                                  }}
+                                  onKeyDown={(event) => event.stopPropagation()}
                                   disabled={trustSubmittingId === membership.userId}
                                   className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
                                 >
