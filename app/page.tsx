@@ -430,14 +430,14 @@ export default function Home() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/trust50-logo.png" alt="Trust50" className="h-48 w-48 rounded-[32px] object-contain" />
                 <div className="space-y-3">
-                  <h1 className="text-3xl font-semibold tracking-tight">Private rooms for trusted advice and warm introductions.</h1>
+                  <h1 className="text-3xl font-semibold tracking-tight">Private circles for trusted advice and warm introductions.</h1>
                   <p className="max-w-2xl text-base leading-7 text-muted">
-                    Join small, vouched rooms where founders, operators, investors, and specialists help each other make better decisions.
+                    Join small, vouched trust circles where founders, operators, investors, and specialists help each other make better decisions.
                   </p>
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-3">
-                  {["50 max per room", "4 rooms per person", "Vouched access"].map((label) => (
+                  {["50 max per circle", "4 circles per person", "Vouched access"].map((label) => (
                     <div key={label} className="rounded-2xl border border-line bg-panel px-4 py-3 text-center text-xs font-medium text-foreground">
                       {label}
                     </div>
@@ -454,7 +454,7 @@ export default function Home() {
                     <div className="h-px flex-1 bg-line" />
                     <div className="text-center">
                       <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-white shadow-sm">
-                        Room
+                        Circle
                       </div>
                     </div>
                     <div className="h-px flex-1 bg-line" />
@@ -480,7 +480,7 @@ export default function Home() {
                     href="/explore-groups"
                     className="inline-flex items-center justify-center rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground"
                   >
-                    Browse rooms
+                    Browse circles
                   </Link>
                   <button
                     type="button"
@@ -575,7 +575,7 @@ export default function Home() {
         <header className="mb-5 flex items-center justify-between gap-3">
           <div className="flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/trust50-logo.png" alt="Trust50" className="h-14 w-14 rounded-2xl object-contain sm:h-11 sm:w-11 sm:rounded-xl" />
+            <img src="/trust50-logo.png" alt="Trust50" className="h-16 w-16 rounded-2xl object-contain sm:h-14 sm:w-14" />
           </div>
           <div className="flex items-end gap-1 sm:gap-3">
             <Link
@@ -583,7 +583,7 @@ export default function Home() {
               className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
             >
               <RoomsIcon />
-              <span>Rooms</span>
+              <span>Circles</span>
             </Link>
             {currentUser ? (
               <Link
@@ -616,7 +616,7 @@ export default function Home() {
             <div className="px-5 py-6">
               <p className="text-lg font-semibold text-foreground">Your Wire is empty</p>
               <p className="mt-2 text-sm leading-6 text-muted">
-                Join a room to start seeing operator questions, warm introductions, hiring decisions, and trusted requests for judgment.
+                Join a trust circle to start seeing operator questions, warm introductions, hiring decisions, and trusted requests for judgment.
               </p>
               <div className="mt-5 space-y-3">
                 {emptyWirePreviews.map((preview) => (
@@ -636,13 +636,13 @@ export default function Home() {
                   href="/explore-groups"
                   className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
                 >
-                  Find a room where you can add value
+                  Find a circle where you can add value
                 </Link>
                 <Link
                   href="/start-a-group"
                   className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
                 >
-                  Start a room
+                  Start a circle
                 </Link>
               </div>
             </div>
@@ -650,7 +650,7 @@ export default function Home() {
             <div className="px-5 py-8">
               <p className="font-medium text-foreground">Nothing needs you right now.</p>
               <p className="mt-1 text-sm text-muted">
-                Build your profile so curators can understand where you can contribute, or browse rooms with live discussions.
+                Build your profile so curators can understand where you can contribute, or browse circles with live discussions.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 {currentUser ? (
@@ -665,7 +665,7 @@ export default function Home() {
                   href="/explore-groups"
                   className="inline-flex rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground"
                 >
-                  Browse rooms
+                  Browse circles
                 </Link>
               </div>
             </div>
@@ -767,7 +767,7 @@ export default function Home() {
 
         <nav className="sticky bottom-4 mt-6 grid grid-cols-3 overflow-hidden rounded-full border border-line bg-white p-1 shadow-sm">
           <Link href="/explore-groups" className="rounded-full px-4 py-2 text-center text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground">
-            Rooms
+            Circles
           </Link>
           <Link href="/" className="rounded-full bg-foreground px-4 py-2 text-center text-sm font-medium text-white">
             Wire
@@ -785,7 +785,7 @@ export default function Home() {
 
         <footer className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 pb-2 text-xs text-muted">
           <Link href="/how-it-works" className="transition hover:text-foreground">
-            How rooms work
+            How circles work
           </Link>
           <Link href="/faq" className="transition hover:text-foreground">
             FAQ
