@@ -6,6 +6,88 @@ import { ProfileBuilder } from "@/components/ProfileBuilder";
 import { getAuthSession } from "@/lib/auth";
 import { getAccessibleProfile } from "@/lib/profiles";
 
+function WireIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M4 6.5h16M4 12h10M4 17.5h7" strokeLinecap="round" />
+      <path d="M17 13.5 20 16l-3 2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function RoomsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M4 10.5 12 4l8 6.5V20H4v-9.5Z" strokeLinejoin="round" />
+      <path d="M9 20v-6h6v6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+      <path d="M4.5 21a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
+      <path d="M10 5H6.5A2.5 2.5 0 0 0 4 7.5v9A2.5 2.5 0 0 0 6.5 19H10" strokeLinecap="round" />
+      <path d="M14 8l4 4-4 4M18 12H9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MemberTopNav({ currentUserId }: { currentUserId: string }) {
+  return (
+    <header className="mb-5 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/trust50-logo.png" alt="Trust50" className="h-9 w-9 rounded-xl object-contain" />
+        <div>
+          <p className="text-sm font-semibold text-foreground">Trust50</p>
+          <h1 className="mt-0.5 text-sm font-medium text-muted">Me</h1>
+        </div>
+      </div>
+      <div className="flex items-end gap-1 sm:gap-3">
+        <Link
+          href="/"
+          className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
+        >
+          <WireIcon />
+          <span>Wire</span>
+        </Link>
+        <Link
+          href="/explore-groups"
+          className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
+        >
+          <RoomsIcon />
+          <span>Rooms</span>
+        </Link>
+        <Link
+          href={`/members/${currentUserId}`}
+          className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-foreground transition hover:bg-panel"
+          aria-current="page"
+        >
+          <MeIcon />
+          <span>Me</span>
+        </Link>
+        <Link
+          href="/api/auth/signout"
+          className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
+        >
+          <SignOutIcon />
+          <span>Out</span>
+        </Link>
+      </div>
+    </header>
+  );
+}
+
 type PageProps = {
   params: Promise<{
     id: string;
@@ -31,15 +113,14 @@ export default async function MemberProfilePage({ params }: PageProps) {
 
   if (isOwnProfile) {
     return (
-      <main className="min-h-screen bg-background px-6 py-12 text-foreground">
+      <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10">
+        <div className="mx-auto max-w-5xl">
+          <MemberTopNav currentUserId={viewerId} />
+        </div>
         <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_0.78fr]">
           <section className="space-y-6">
             <div className="space-y-2">
-              <Link href="/" className="text-sm font-medium text-muted transition hover:text-foreground">
-                Back to feed
-              </Link>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Me</p>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight">
                   Your Trust50 profile
                 </h1>
@@ -77,8 +158,6 @@ export default async function MemberProfilePage({ params }: PageProps) {
               </div>
             </section>
 
-            <ProfileBuilder profile={profile} />
-
             <section className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
               <h2 className="text-xl font-semibold">Reputation</h2>
               <p className="mt-2 text-sm leading-6 text-muted">
@@ -111,7 +190,8 @@ export default async function MemberProfilePage({ params }: PageProps) {
             </section>
           </section>
 
-          <aside>
+          <aside className="space-y-4">
+            <ProfileBuilder profile={profile} />
             <ProfileCard
               user={{
                 id: profile.id,

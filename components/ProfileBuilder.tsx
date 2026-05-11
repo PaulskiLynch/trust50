@@ -121,22 +121,26 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
   }
 
   return (
-    <section id="build-profile" className="rounded-[28px] border border-line bg-white p-6 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold">Build my profile</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
-            Complete these once. Leave anything blank. Your profile helps curators and members understand where you can contribute.
+    <details id="build-profile" className="group rounded-[24px] border border-line bg-white p-4 shadow-sm">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold">Build my profile</h2>
+          <p className="mt-1 text-sm leading-5 text-muted">
+            Add context curators use to understand your fit.
           </p>
         </div>
         <span className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-medium text-muted">
           {completed}/{fields.length} complete
         </span>
-      </div>
+      </summary>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+      <p className="mt-4 text-sm leading-6 text-muted">
+        Complete these once. Leave anything blank. Your profile helps curators and members understand where you can contribute.
+      </p>
+
+      <div className="mt-5 grid gap-4">
         {fields.map((field) => (
-          <label key={field.key} className={`space-y-2 text-sm text-muted ${field.textarea ? "sm:col-span-2" : ""}`}>
+          <label key={field.key} className="space-y-2 text-sm text-muted">
             <span className="block">{field.label}</span>
             {field.textarea ? (
               <textarea
@@ -168,6 +172,6 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
         </button>
         {flash ? <p className="text-sm text-muted">{flash}</p> : null}
       </div>
-    </section>
+    </details>
   );
 }
