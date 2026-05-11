@@ -194,6 +194,15 @@ function displayedTrustCount(credibility: ReturnType<typeof buildCredibilityProf
   return Math.min(Math.max(realTrustCount, credibility?.trustCount ?? 0), 200);
 }
 
+function trustTierLabel(score: number) {
+  if (score >= 200) return "Mythical Unicorn";
+  if (score >= 151) return "Exceptional";
+  if (score >= 101) return "Deeply Trusted";
+  if (score >= 51) return "Respected";
+  if (score >= 21) return "Trusted";
+  return "Earning Trust";
+}
+
 function memberInitials(name?: string | null, email?: string | null) {
   const source = name?.trim() || email || "FH";
   return source
@@ -265,10 +274,7 @@ export default function GroupDetailPage({ params }: PageProps) {
   const [group, setGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
-  const [requestTitle, setRequestTitle] = useState("");
   const [requestContent, setRequestContent] = useState("");
-  const [requestMediaUrl, setRequestMediaUrl] = useState("");
-  const [requestKind, setRequestKind] = useState<GroupRequest["kind"]>("request");
   const [isPostingRequest, setIsPostingRequest] = useState(false);
   const [showAllMembers, setShowAllMembers] = useState(false);
   const [showLeavePanel, setShowLeavePanel] = useState(false);
@@ -276,9 +282,8 @@ export default function GroupDetailPage({ params }: PageProps) {
   const [leaveReason, setLeaveReason] = useState("");
   const [leaveReplacement, setLeaveReplacement] = useState("");
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
-  const [discussionSearch, setDiscussionSearch] = useState("");
-  const [discussionFilter, setDiscussionFilter] = useState<"all" | "open" | "resolved">("all");
   const [trustSubmittingId, setTrustSubmittingId] = useState<string | null>(null);
+  const [roomTab, setRoomTab] = useState<"wire" | "members" | "about">("wire");
 
   useEffect(() => {
     void params.then((value) => setGroupId(value.id));
@@ -311,7 +316,6 @@ export default function GroupDetailPage({ params }: PageProps) {
   }, [groupId, load]);
 
   const currentUserId = session?.user?.id ?? null;
-  const selectedDiscussionType = discussionTypeMeta[requestKind];
   const currentMembership = useMemo(
     () => group?.memberships.find((membership) => membership.userId === currentUserId) ?? null,
     [currentUserId, group],
@@ -348,31 +352,6 @@ export default function GroupDetailPage({ params }: PageProps) {
   const patrons = useMemo(() => (group ? roomPatrons[group.id] ?? [] : []), [group]);
   const isFreeRoom = !group?.price || group.price <= 0;
   const scholarshipSeats = group?.price && group.price > 0 ? 3 : 0;
-
-  const acceptedConversationByUserId = useMemo(() => {
-    const entries = new Map<string, string>();
-
-    group?.requests.forEach((request) => {
-      request.introductions.forEach((introduction) => {
-        if (
-          introduction.status === "accepted" &&
-          introduction.conversation &&
-          currentUserId &&
-          (introduction.conversation.participantOneId === currentUserId ||
-            introduction.conversation.participantTwoId === currentUserId)
-        ) {
-          const otherParticipantId =
-            introduction.conversation.participantOneId === currentUserId
-              ? introduction.conversation.participantTwoId
-              : introduction.conversation.participantOneId;
-
-          entries.set(otherParticipantId, introduction.conversation.id);
-        }
-      });
-    });
-
-    return entries;
-  }, [currentUserId, group]);
 
   const pinnedRequestIds = useMemo(
     () =>
@@ -419,26 +398,14 @@ export default function GroupDetailPage({ params }: PageProps) {
     [orderedRequests, pinnedRequestIds],
   );
 
-  const discussionQuery = discussionSearch.trim().toLowerCase();
-
   const visibleOpenRequests = useMemo(
-    () =>
-      feedRequests.filter((request) => {
-        if (request.status !== "open") return false;
-        const haystack = `${discussionTitle(request)} ${request.content} ${request.outcome || ""}`.toLowerCase();
-        return !discussionQuery || haystack.includes(discussionQuery);
-      }),
-    [discussionQuery, feedRequests],
+    () => feedRequests.filter((request) => request.status === "open"),
+    [feedRequests],
   );
 
   const visibleResolvedRequests = useMemo(
-    () =>
-      orderedRequests.filter((request) => {
-        if (request.status === "open") return false;
-        const haystack = `${discussionTitle(request)} ${request.content} ${request.outcome || ""}`.toLowerCase();
-        return !discussionQuery || haystack.includes(discussionQuery);
-      }),
-    [discussionQuery, orderedRequests],
+    () => orderedRequests.filter((request) => request.status !== "open"),
+    [orderedRequests],
   );
 
   const hasAnyDiscussions = orderedRequests.length > 0;
@@ -476,13 +443,15 @@ export default function GroupDetailPage({ params }: PageProps) {
   }, [group]);
 
   async function handleCreateRequest() {
-    if (!group || !requestTitle.trim() || !requestContent.trim()) {
-      setFlash("Add a title and context before posting");
+    if (!group || !requestContent.trim()) {
+      setFlash("Add the decision you want the room to discuss.");
       return;
     }
 
     setIsPostingRequest(true);
     setFlash(null);
+    const normalizedContent = requestContent.replace(/\s+/g, " ").trim();
+    const inferredTitle = normalizedContent.length > 96 ? `${normalizedContent.slice(0, 93)}...` : normalizedContent;
 
     try {
       const response = await fetch("/api/requests", {
@@ -492,10 +461,10 @@ export default function GroupDetailPage({ params }: PageProps) {
         },
         body: JSON.stringify({
           groupId: group.id,
-          title: requestTitle.trim(),
+          title: inferredTitle,
           content: requestContent.trim(),
-          mediaUrl: requestMediaUrl.trim(),
-          kind: requestKind,
+          mediaUrl: "",
+          kind: "question",
         }),
       });
 
@@ -505,47 +474,13 @@ export default function GroupDetailPage({ params }: PageProps) {
         throw new Error(data.error ?? "Unable to post discussion");
       }
 
-      setRequestTitle("");
       setRequestContent("");
-      setRequestMediaUrl("");
-      setRequestKind("request");
       setFlash("Discussion posted");
       await load();
     } catch (error) {
       setFlash(error instanceof Error ? error.message : "Unable to post discussion");
     } finally {
       setIsPostingRequest(false);
-    }
-  }
-
-  async function handleOpenDirectConversation(targetUserId: string) {
-    if (!group) {
-      return;
-    }
-
-    setFlash(null);
-
-    try {
-      const response = await fetch("/api/conversations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          groupId: group.id,
-          targetUserId,
-        }),
-      });
-
-      const data = (await response.json()) as { id?: string; error?: string };
-
-      if (!response.ok || !data.id) {
-        throw new Error(data.error ?? "Unable to open conversation");
-      }
-
-      router.push(`/conversations/${data.id}`);
-    } catch (error) {
-      setFlash(error instanceof Error ? error.message : "Unable to open conversation");
     }
   }
 
@@ -730,7 +665,28 @@ export default function GroupDetailPage({ params }: PageProps) {
         ) : null}
 
         {group ? (
+          <>
+          <nav className="grid grid-cols-3 overflow-hidden rounded-full border border-line bg-white p-1 shadow-sm">
+            {[
+              { key: "wire", label: "Wire" },
+              { key: "members", label: "Members" },
+              { key: "about", label: "About" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setRoomTab(tab.key as "wire" | "members" | "about")}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  roomTab === tab.key ? "bg-foreground text-white" : "text-muted hover:bg-panel hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
           <div className="grid min-w-0 gap-6 lg:grid-cols-[1.18fr_0.82fr]">
+            {roomTab === "wire" ? (
             <section className="min-w-0 rounded-3xl border border-line bg-panel p-4 shadow-sm sm:p-6">
               <div className="rounded-2xl border border-line bg-white p-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
@@ -748,7 +704,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                       }
                       className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
                     >
-                      Take the hot seat
+                      + Start a discussion
                     </button>
                   ) : (
                     <Link
@@ -859,9 +815,9 @@ export default function GroupDetailPage({ params }: PageProps) {
               {isActiveMember ? (
                 <div id="ask-in-group" className="mt-5 rounded-2xl border border-line bg-white p-5">
                   <div className="space-y-1">
-                    <h2 className="text-xl font-semibold">Hot Seat</h2>
+                    <h2 className="text-xl font-semibold">Start a discussion</h2>
                     <p className="text-sm text-muted">
-                      Bring a real decision, tradeoff, or pattern the room can sharpen quickly.
+                      Ask the room about one real decision. The room can ask clarifying questions.
                     </p>
                   </div>
                   <div className="mt-4 space-y-3">
@@ -873,60 +829,16 @@ export default function GroupDetailPage({ params }: PageProps) {
                         </p>
                       </div>
                     ) : null}
-                    <p className="text-sm font-medium">Bring it to the table</p>
-                    <p className="text-sm text-muted">Clear context leads to better replies.</p>
-                    <p className="text-sm text-muted">
-                      {selectedDiscussionType.bodyExample}
-                    </p>
-                    <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_0.6fr]">
-                      <input
-                        className="rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
-                        value={requestTitle}
-                        onChange={(event) => setRequestTitle(event.target.value)}
-                        placeholder={selectedDiscussionType.titlePlaceholder}
-                      />
-                      <label className="space-y-2">
-                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-                          Discussion type
-                        </span>
-                        <select
-                          className="w-full rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
-                          value={requestKind}
-                          onChange={(event) => setRequestKind(event.target.value as GroupRequest["kind"])}
-                        >
-                          <option value="question">Question</option>
-                          <option value="insight">Insight</option>
-                          <option value="request">Hiring</option>
-                          <option value="update">Fundraising</option>
-                        </select>
-                        <p className="text-xs text-muted">{selectedDiscussionType.description}</p>
-                      </label>
-                    </div>
-                    <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                      <p className="text-sm font-medium text-foreground">{selectedDiscussionType.label}</p>
-                      <p className="mt-2 text-sm text-muted">{selectedDiscussionType.bodyPrompt}</p>
-                      <div className="mt-3 space-y-1 text-sm text-muted">
-                        {selectedDiscussionType.bullets.map((bullet) => (
-                          <p key={bullet}>• {bullet}</p>
-                        ))}
-                      </div>
-                    </div>
+                    <label className="block space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+                        What&apos;s your decision?
+                      </span>
                     <textarea
                       className="min-h-32 w-full rounded-2xl border border-line bg-panel px-4 py-3 text-sm outline-none transition focus:border-foreground"
                       value={requestContent}
                       onChange={(event) => setRequestContent(event.target.value)}
-                      placeholder={selectedDiscussionType.bodyExample}
+                      placeholder={discussionTypeMeta.question.bodyExample}
                     />
-                    <label className="block space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-                        Image URL
-                      </span>
-                      <input
-                        className="w-full rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
-                        value={requestMediaUrl}
-                        onChange={(event) => setRequestMediaUrl(event.target.value)}
-                        placeholder="Optional image, chart, screenshot, or room context"
-                      />
                     </label>
                     <button
                       type="button"
@@ -941,7 +853,7 @@ export default function GroupDetailPage({ params }: PageProps) {
               ) : (
                 <div id="ask-in-group" className="mt-5 rounded-2xl border border-line bg-white p-5">
                   <div className="space-y-1">
-                    <h2 className="text-xl font-semibold">Hot Seat</h2>
+                    <h2 className="text-xl font-semibold">Start a discussion</h2>
                     <p className="text-sm text-muted">
                       This room opens up once you are an active member. Public discussion comes first, then private follow-up if useful.
                     </p>
@@ -987,44 +899,8 @@ export default function GroupDetailPage({ params }: PageProps) {
 
               {isActiveMember ? (
               <div className="mt-5 space-y-5">
-                <div className="rounded-2xl border border-line bg-white p-5">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                    <label className="block flex-1 space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-                        Find signal
-                      </span>
-                      <input
-                        className="w-full rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
-                        value={discussionSearch}
-                        onChange={(event) => setDiscussionSearch(event.target.value)}
-                        placeholder="Search live and resolved signals..."
-                      />
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { key: "all", label: "All" },
-                        { key: "open", label: "Open" },
-                        { key: "resolved", label: "Resolved" },
-                      ].map((option) => (
-                        <button
-                          key={option.key}
-                          type="button"
-                          onClick={() => setDiscussionFilter(option.key as "all" | "open" | "resolved")}
-                          className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                            discussionFilter === option.key
-                              ? "bg-foreground text-white"
-                              : "border border-line text-foreground hover:border-foreground"
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {(discussionFilter === "all" || discussionFilter === "open") ? (
                   <div className="rounded-2xl border border-line bg-white p-5">
+                    <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted">The Wire</h2>
                     {!hasAnyDiscussions ? (
                       <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-5 text-sm text-muted">
                         <p className="font-medium text-foreground">No signals yet.</p>
@@ -1049,9 +925,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                       )}
                     </div>
                   </div>
-                ) : null}
 
-                {(discussionFilter === "all" || discussionFilter === "resolved") ? (
                   <div className="rounded-2xl border border-line bg-white p-5">
                     <div className="space-y-1">
                       <h3 className="text-lg font-semibold">The Ledger</h3>
@@ -1066,11 +940,12 @@ export default function GroupDetailPage({ params }: PageProps) {
                       )}
                     </div>
                   </div>
-                ) : null}
               </div>
               ) : null}
             </section>
-            <aside className="min-w-0 space-y-6">
+            ) : null}
+            {roomTab === "about" ? (
+            <aside className="min-w-0 space-y-6 lg:col-span-2">
               {isFreeRoom ? (
                 <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
                   <h2 className="text-xl font-semibold">Patrons</h2>
@@ -1147,7 +1022,11 @@ export default function GroupDetailPage({ params }: PageProps) {
                 </section>
               ) : null}
 
-              <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
+              </aside>
+              ) : null}
+
+              {roomTab === "members" ? (
+              <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm lg:col-span-2">
                 <h2 className="text-xl font-semibold">At The Table · {activeMembers.length} of 50 seats</h2>
                 <p className="mt-1 text-sm text-muted">
                   {isActiveMember
@@ -1169,7 +1048,6 @@ export default function GroupDetailPage({ params }: PageProps) {
                       const introCount = request.introductions.filter((introduction) => introduction.connectorId === membership.userId).length;
                       return count + replyCount + introCount;
                     }, 0);
-                    const conversationId = acceptedConversationByUserId.get(membership.userId);
                     const isNewMember = Date.now() - new Date(membership.createdAt).getTime() < 14 * 24 * 60 * 60 * 1000;
                     const credibility = credibilityByUserId.get(membership.userId);
                     const realTrustCount = (group.trustLinks ?? []).filter((link) => link.receiverUserId === membership.userId).length;
@@ -1188,7 +1066,9 @@ export default function GroupDetailPage({ params }: PageProps) {
                             </div>
                             <div className="min-w-0">
                               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                <p className="truncate font-medium">{membership.user?.name || membership.user?.email || membership.userId}</p>
+                                <Link href={`/members/${membership.userId}`} className="truncate font-medium transition hover:text-muted">
+                                  {membership.user?.name || membership.user?.email || membership.userId}
+                                </Link>
                                 {isNewMember ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">New</span> : null}
                                 {credibility ? (
                                   <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-medium text-white">
@@ -1196,66 +1076,30 @@ export default function GroupDetailPage({ params }: PageProps) {
                                   </span>
                                 ) : null}
                               </div>
-                              <p className="truncate text-sm text-muted">{membership.user?.headline || membership.role}</p>
-                              {credibility?.knownFor.length ? (
-                                <p className="mt-1 truncate text-xs text-muted">Known for {credibility.knownFor.slice(0, 2).join(" · ")}</p>
-                              ) : null}
-                              {credibility ? (
-                                <p className="mt-1 text-xs text-muted">
-                                  Trusted by {trustCount} {trustCount === 1 ? "person" : "people"}
-                                </p>
-                              ) : null}
+                              <p className="mt-1 text-sm text-muted">
+                                Trusted by {trustCount} {trustCount === 1 ? "member" : "members"} · {trustTierLabel(trustCount)}
+                              </p>
                               {showAllMembers ? (
                                 <>
                                   <p className="mt-1 text-xs text-muted">Member since {formatJoinedLabel(membership.createdAt)}</p>
-                                  <p className="mt-1 text-xs text-muted">
-                                    {credibility?.replyCountRecent
-                                      ? `${credibility.replyCountRecent} ${credibility.replyCountRecent === 1 ? "reply" : "replies"} this week`
-                                      : contributionCount >= 3
-                                        ? "Active contributor"
-                                        : contributionCount >= 1
-                                          ? `${contributionCount} ${contributionCount === 1 ? "reply" : "replies"} this week`
-                                          : "Quiet lately"}
-                                  </p>
+                                  <p className="mt-1 text-xs text-muted">{getMemberActivityLabel(contributionCount)}</p>
                                 </>
                               ) : null}
                             </div>
                           </div>
 
                           <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                            {showAllMembers ? (
-                              <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-medium text-stone-700">
-                                {getMemberActivityLabel(contributionCount)}
-                              </span>
-                            ) : null}
                             <div className="flex flex-wrap gap-2 sm:justify-end">
                               {canTrustMember ? (
                                 <button
                                   type="button"
                                   onClick={() => void handleTrustMember(membership.userId, alreadyTrusted)}
                                   disabled={trustSubmittingId === membership.userId}
-                                  className="text-xs font-medium text-muted transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                  {alreadyTrusted ? "✓ You trust" : "Trust this member"}
+                                  {alreadyTrusted ? "✓ You trust this member" : "Trust this member"}
                                 </button>
                               ) : null}
-                              {conversationId ? (
-                                <Link href={`/conversations/${conversationId}`} className="text-xs font-medium text-muted transition hover:text-foreground">Message</Link>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => void handleOpenDirectConversation(membership.userId)}
-                                  className="text-xs font-medium text-muted transition hover:text-foreground"
-                                >
-                                  Message
-                                </button>
-                              )}
-                              <Link
-                                href={`/members/${membership.userId}`}
-                                className="text-xs font-medium text-muted transition hover:text-foreground"
-                              >
-                                View profile
-                              </Link>
                             </div>
                           </div>
                         </div>
@@ -1277,8 +1121,10 @@ export default function GroupDetailPage({ params }: PageProps) {
                 </div>
                 ) : null}
               </section>
+              ) : null}
 
-              <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
+              {roomTab === "about" ? (
+              <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm lg:col-span-2">
                 <h2 className="text-xl font-semibold">Awaiting Vouches · {waitingListMembers.length}</h2>
                 <p className="mt-1 text-sm text-muted">
                   Access opens selectively. New members move through vouching, not first-come queueing.
@@ -1345,8 +1191,9 @@ export default function GroupDetailPage({ params }: PageProps) {
                 </div>
                 ) : null}
               </section>
-            </aside>
+              ) : null}
           </div>
+          </>
         ) : null}
       </div>
     </main>
