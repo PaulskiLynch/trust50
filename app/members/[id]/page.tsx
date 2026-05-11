@@ -9,8 +9,8 @@ import { getAccessibleProfile } from "@/lib/profiles";
 function WireIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
-      <path d="M4 6.5h16M4 12h10M4 17.5h7" strokeLinecap="round" />
-      <path d="M17 13.5 20 16l-3 2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5v5A3.5 3.5 0 0 1 15.5 15H11l-5 4v-4.3A3.5 3.5 0 0 1 5 12V6.5Z" strokeLinejoin="round" />
+      <path d="M9 8h6M9 11h4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -45,13 +45,9 @@ function SignOutIcon() {
 function MemberTopNav({ currentUserId }: { currentUserId: string }) {
   return (
     <header className="mb-5 flex items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/trust50-logo.png" alt="Trust50" className="h-9 w-9 rounded-xl object-contain" />
-        <div>
-          <p className="text-sm font-semibold text-foreground">Trust50</p>
-          <h1 className="mt-0.5 text-sm font-medium text-muted">Me</h1>
-        </div>
+        <img src="/trust50-logo.png" alt="Trust50" className="h-11 w-11 rounded-xl object-contain" />
       </div>
       <div className="flex items-end gap-1 sm:gap-3">
         <Link
