@@ -43,7 +43,9 @@ export async function getAccessibleProfile(viewerId: string, targetUserId: strin
     return null;
   }
 
-  const activeGroups = targetUser.memberships.map((membership) => membership.group);
+  const activeGroups = targetUser.memberships
+    .filter((membership) => membership.role !== "owner")
+    .map((membership) => membership.group);
   const sharedGroups = activeGroups.filter((group) =>
     group.memberships.some((membership) => membership.userId === viewerId),
   );
@@ -123,7 +125,9 @@ export async function getCurrentUserProfile(viewerId: string) {
     return null;
   }
 
-  const activeGroups = user.memberships.map((membership) => membership.group);
+  const activeGroups = user.memberships
+    .filter((membership) => membership.role !== "owner")
+    .map((membership) => membership.group);
   const credibility = buildCredibilityProfile(user.id, activeGroups, user);
 
   return {
