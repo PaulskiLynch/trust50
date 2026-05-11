@@ -639,15 +639,15 @@ export default function GroupDetailPage({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-background px-6 py-16 text-foreground">
+    <main className="min-h-screen overflow-x-hidden bg-background px-4 py-8 text-foreground sm:px-6 sm:py-16">
       <div className="mx-auto max-w-6xl space-y-8">
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-2">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 space-y-2">
             <Link href="/" className="text-sm font-medium text-muted transition hover:text-foreground">
               Back to The Floor
             </Link>
-            <div className="flex items-center gap-3">
-              <h1 className="text-4xl font-semibold tracking-tight">{group?.name || "Loading group..."}</h1>
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <h1 className="min-w-0 break-words text-3xl font-semibold tracking-tight sm:text-4xl">{group?.name || "Loading group..."}</h1>
               {group ? (
                 <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusClasses[group.status]}`}>
                   {statusCopy[group.status]}
@@ -665,7 +665,7 @@ export default function GroupDetailPage({ params }: PageProps) {
           <button
             type="button"
             onClick={() => void load()}
-            className="rounded-full border border-line bg-panel px-4 py-2 text-sm font-medium transition hover:border-foreground"
+            className="self-start rounded-full border border-line bg-panel px-4 py-2 text-sm font-medium transition hover:border-foreground sm:self-auto"
           >
             Refresh
           </button>
@@ -691,8 +691,8 @@ export default function GroupDetailPage({ params }: PageProps) {
         ) : null}
 
         {group ? (
-          <div className="grid gap-6 lg:grid-cols-[1.18fr_0.82fr]">
-            <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
+          <div className="grid min-w-0 gap-6 lg:grid-cols-[1.18fr_0.82fr]">
+            <section className="min-w-0 rounded-3xl border border-line bg-panel p-4 shadow-sm sm:p-6">
               <div className="rounded-2xl border border-line bg-white p-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   Curated by {group.owner?.name || group.owner?.email || group.ownerId}
@@ -761,7 +761,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                         Leaving opens one of your four room slots. Tell the curator whether the room did what you needed and who might use the place well next.
                       </p>
                     </div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-3">
                       <label className="space-y-2 text-sm text-muted">
                         <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-muted">Did you get what you needed?</span>
                         <select
@@ -839,7 +839,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                     <p className="text-sm text-muted">
                       {selectedDiscussionType.bodyExample}
                     </p>
-                    <div className="grid gap-3 md:grid-cols-[1fr_0.6fr]">
+                    <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_0.6fr]">
                       <input
                         className="rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
                         value={requestTitle}
@@ -1031,7 +1031,7 @@ export default function GroupDetailPage({ params }: PageProps) {
               </div>
               ) : null}
             </section>
-            <aside className="space-y-6">
+            <aside className="min-w-0 space-y-6">
               {isFreeRoom ? (
                 <section className="rounded-3xl border border-line bg-panel p-6 shadow-sm">
                   <h2 className="text-xl font-semibold">Patrons</h2>
@@ -1136,13 +1136,13 @@ export default function GroupDetailPage({ params }: PageProps) {
 
                     return (
                       <div key={membership.id} className="rounded-2xl border border-line bg-white px-4 py-3">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex min-w-0 items-start gap-3">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-stone-100 text-xs font-semibold text-stone-700">
                               {memberInitials(membership.user?.name, membership.user?.email)}
                             </div>
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex min-w-0 flex-wrap items-center gap-2">
                                 <p className="truncate font-medium">{membership.user?.name || membership.user?.email || membership.userId}</p>
                                 {isNewMember ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">New</span> : null}
                                 {credibility ? (
@@ -1172,13 +1172,13 @@ export default function GroupDetailPage({ params }: PageProps) {
                             </div>
                           </div>
 
-                          <div className="flex shrink-0 flex-col items-end gap-2">
+                          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
                             {showAllMembers ? (
                               <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-medium text-stone-700">
                                 {getMemberActivityLabel(contributionCount)}
                               </span>
                             ) : null}
-                            <div className="flex flex-wrap justify-end gap-2">
+                            <div className="flex flex-wrap gap-2 sm:justify-end">
                               {conversationId ? (
                                 <Link href={`/conversations/${conversationId}`} className="text-xs font-medium text-muted transition hover:text-foreground">Message</Link>
                               ) : (
@@ -1251,7 +1251,7 @@ export default function GroupDetailPage({ params }: PageProps) {
 
                   {waitingListMembers.slice(0, 6).map((membership) => (
                     <div key={membership.id} className="rounded-2xl border border-line bg-white px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <p className="truncate font-medium">
                             {membership.user?.name || membership.user?.email || membership.userId}
@@ -1265,7 +1265,7 @@ export default function GroupDetailPage({ params }: PageProps) {
                             </p>
                           ) : null}
                         </div>
-                        <div className="shrink-0 text-right">
+                        <div className="shrink-0 text-left sm:text-right">
                           <p className="text-xs font-medium text-foreground">
                             {membership.status === "pending"
                               ? `${membership.votes?.length ?? 0}/${waitlistVoteThreshold} vouches · In motion`
