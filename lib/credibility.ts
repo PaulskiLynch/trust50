@@ -35,6 +35,7 @@ export type TrustLevel = "New" | "Contributor" | "Trusted";
 
 export type CredibilityProfile = {
   trustLevel: TrustLevel;
+  trustCount: number;
   helpfulRepliesCount: number;
   replyCountRecent: number;
   groupsActiveIn: string[];
@@ -122,6 +123,34 @@ export function buildCredibilityProfile(
   );
 
   const replyCountRecent = recentReplies.length;
+  const trustingUserIds = new Set<string>();
+
+  groups.forEach((group) => {
+    group.requests.forEach((request) => {
+      if (request.creatorId === userId) {
+        request.replies.forEach((reply) => {
+          if (reply.senderId !== userId) trustingUserIds.add(reply.senderId);
+        });
+      }
+
+      if (request.creatorId && request.creatorId !== userId && request.replies.some((reply) => reply.senderId === userId)) {
+        trustingUserIds.add(request.creatorId);
+      }
+
+      request.replies.forEach((reply) => {
+        if (reply.senderId === userId && getHelpfulSignalCount([reply], userId)) {
+          trustingUserIds.add(request.creatorId || group.id);
+        }
+      });
+    });
+  });
+
+  const trustCount = Math.max(
+    trustingUserIds.size,
+    helpfulRepliesCount * 2,
+    replyCountRecent,
+    groupsActiveIn.length,
+  );
 
   let trustLevel: TrustLevel = "New";
   if (replyCountRecent >= 2 || helpfulRepliesCount >= 1 || groupsActiveIn.length >= 2) {
@@ -167,6 +196,7 @@ export function buildCredibilityProfile(
 
   return {
     trustLevel,
+    trustCount,
     helpfulRepliesCount,
     replyCountRecent,
     groupsActiveIn,

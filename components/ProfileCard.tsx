@@ -9,6 +9,7 @@ type ProfileUser = {
   decisionHistory: { title: string; impact: string; groupName?: string }[];
   helpTopics: string[];
   trustSignals: string[];
+  trustCount: number;
 };
 
 type ProfileCardProps = {
@@ -27,7 +28,12 @@ export function ProfileCard({ user }: ProfileCardProps) {
           className="h-16 w-16 rounded-full object-cover"
         />
         <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-semibold">{user.name || "Current user"}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-semibold">{user.name || "Current user"}</h2>
+            <span className="rounded-full bg-foreground px-3 py-1 text-xs font-medium text-white">
+              Trusted by {user.trustCount} {user.trustCount === 1 ? "person" : "people"}
+            </span>
+          </div>
           <p className="mt-1 text-sm leading-6 text-muted">
             Here are decisions I have made that other members may be able to use.
           </p>

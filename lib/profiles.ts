@@ -79,12 +79,13 @@ function buildTrustSignals(groups: ProfileGroup[], credibility: ReturnType<typeo
 
   if (credibility.helpfulRepliesCount > 0) {
     return [
-      `${credibility.helpfulRepliesCount} helpful ${credibility.helpfulRepliesCount === 1 ? "reply" : "replies"} logged across rooms`,
+      `Trusted by ${credibility.trustCount} ${credibility.trustCount === 1 ? "person" : "people"}`,
       `Members in ${firstGroup} engaged with this judgment`,
     ];
   }
 
   return [
+    `Trusted by ${Math.max(credibility.trustCount, 2)} people`,
     `Charlotte Reed vouched for this judgment in ${firstGroup}`,
     `Olivia Grant used this advice in ${secondGroup}`,
   ];

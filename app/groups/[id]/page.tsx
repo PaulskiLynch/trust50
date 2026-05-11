@@ -189,12 +189,6 @@ function memberInitials(name?: string | null, email?: string | null) {
     .toUpperCase();
 }
 
-function trustBadgeClasses(level: "New" | "Contributor" | "Trusted") {
-  if (level === "Trusted") return "bg-stone-900 text-white";
-  if (level === "Contributor") return "bg-stone-100 text-stone-700";
-  return "bg-amber-100 text-amber-800";
-}
-
 const discussionTypeMeta: Record<
   GroupRequest["kind"],
   {
@@ -1146,14 +1140,19 @@ export default function GroupDetailPage({ params }: PageProps) {
                                 <p className="truncate font-medium">{membership.user?.name || membership.user?.email || membership.userId}</p>
                                 {isNewMember ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">New</span> : null}
                                 {credibility ? (
-                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${trustBadgeClasses(credibility.trustLevel)}`}>
-                                    {credibility.trustLevel}
+                                  <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-medium text-white">
+                                    Trust {credibility.trustCount}
                                   </span>
                                 ) : null}
                               </div>
                               <p className="truncate text-sm text-muted">{membership.user?.headline || membership.role}</p>
                               {credibility?.knownFor.length ? (
                                 <p className="mt-1 truncate text-xs text-muted">Known for {credibility.knownFor.slice(0, 2).join(" · ")}</p>
+                              ) : null}
+                              {credibility ? (
+                                <p className="mt-1 text-xs text-muted">
+                                  Trusted by {credibility.trustCount} {credibility.trustCount === 1 ? "person" : "people"}
+                                </p>
                               ) : null}
                               {showAllMembers ? (
                                 <>
