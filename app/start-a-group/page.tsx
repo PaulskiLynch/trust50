@@ -23,7 +23,7 @@ export default function StartAGroupPage() {
   const [domain, setDomain] = useState<TrustDomain>("Professional");
   const [category, setCategory] = useState("Startups");
   const [specialty, setSpecialty] = useState("");
-  const [entryRule, setEntryRule] = useState<(typeof ENTRY_RULES)[number]>("Member vouch required");
+  const [entryRule, setEntryRule] = useState<(typeof ENTRY_RULES)[number]>("Vouch required");
   const [groupName, setGroupName] = useState("");
   const [description, setDescription] = useState("");
   const [whoFor, setWhoFor] = useState("");
@@ -38,6 +38,14 @@ export default function StartAGroupPage() {
 
   const isSignedIn = !!session?.user?.id;
   const selectedTaxonomy = getTaxonomyNode(domain);
+  const suggestedGroupName = specialty.trim() ? `${category}: ${specialty.trim()}` : `${category} room`;
+
+  function entryRuleHelp(rule: (typeof ENTRY_RULES)[number]) {
+    if (rule === "Invite only") return "The curator adds members directly. No open enrollment.";
+    if (rule === "Vouch required") return "A qualified applicant needs two member vouches before admission.";
+    if (rule === "Application + curator approval") return "Members apply and the curator decides who earns a seat.";
+    return "The curator reviews fit, then members add the trust signal.";
+  }
 
   async function handleInterestSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -83,12 +91,6 @@ export default function StartAGroupPage() {
       return;
     }
 
-    if (!groupName.trim()) {
-      setCreationStep(2);
-      setFlash("Add a room name.");
-      return;
-    }
-
     if (!description.trim()) {
       setCreationStep(3);
       setFlash("Describe the decisions this room helps with.");
@@ -106,16 +108,17 @@ export default function StartAGroupPage() {
     try {
       const price =
         pricingMode === "paid" ? Number.parseInt(monthlyPrice.trim() || "0", 10) : null;
+      const finalGroupName = groupName.trim() || suggestedGroupName;
 
       const response = await fetch("/api/groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: groupName,
+          name: finalGroupName,
           description: `${description}\n\nTaxonomy: ${domain} / ${category} / ${specialty}.\nEntry: ${entryRule}.`,
           who_for: whoFor,
           who_not_for: whoNotFor || "People looking for open enrollment, broad networking, passive lurking, or generic beginner advice.",
-          value_prop: valueProp || `Specific help with the decisions this room exists to handle: ${description || groupName}. Entry is ${entryRule.toLowerCase()}.`,
+          value_prop: valueProp || `Specific help with the decisions this room exists to handle: ${description || finalGroupName}. Entry is ${entryRule.toLowerCase()}.`,
           price,
         }),
       });
@@ -153,11 +156,22 @@ export default function StartAGroupPage() {
 
             <form onSubmit={handleCreateGroup} className="mt-8 space-y-4">
               <div className="flex gap-2">
-                {[1, 2, 3, 4].map((step) => (
-                  <span
+                {[
+                  { step: 1, label: "Domain" },
+                  { step: 2, label: "Specialty" },
+                  { step: 3, label: "Decisions" },
+                  { step: 4, label: "Rules" },
+                ].map(({ step, label }) => (
+                  <button
                     key={step}
-                    className={`h-2 flex-1 rounded-full transition ${creationStep === step ? "bg-foreground" : "bg-line"}`}
-                  />
+                    type="button"
+                    onClick={() => setCreationStep(step)}
+                    className={`flex-1 rounded-full px-2 py-2 text-xs font-medium transition ${
+                      creationStep === step ? "bg-foreground text-white" : "bg-panel text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
                 ))}
               </div>
 
@@ -168,24 +182,25 @@ export default function StartAGroupPage() {
                     <h2 className="mt-2 text-xl font-semibold">Choose the trust domain</h2>
                   </div>
                   <p className="rounded-2xl bg-panel px-4 py-3 text-sm text-muted">{TAXONOMY_RULE}</p>
-                  <label className="space-y-2 text-sm text-muted">
-                    <span className="block">Domain</span>
-                    <select
-                      value={domain}
-                      onChange={(event) => {
-                        const nextDomain = event.target.value as TrustDomain;
-                        setDomain(nextDomain);
-                        setCategory(getTaxonomyNode(nextDomain).categories[0]);
-                      }}
-                      className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                    >
-                      {TRUST_TAXONOMY.map((node) => (
-                        <option key={node.domain} value={node.domain}>
-                          {node.domain}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {TRUST_TAXONOMY.map((node) => (
+                      <button
+                        key={node.domain}
+                        type="button"
+                        onClick={() => {
+                          setDomain(node.domain);
+                          setCategory(node.categories[0]);
+                        }}
+                        className={`rounded-2xl border px-3 py-3 text-left text-sm font-medium transition ${
+                          domain === node.domain
+                            ? "border-foreground bg-foreground text-white"
+                            : "border-line bg-white text-foreground hover:border-foreground"
+                        }`}
+                      >
+                        {node.domain}
+                      </button>
+                    ))}
+                  </div>
                   <label className="space-y-2 text-sm text-muted">
                     <span className="block">Category</span>
                     <select
@@ -210,7 +225,7 @@ export default function StartAGroupPage() {
                 <section className="space-y-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 2</p>
-                    <h2 className="mt-2 text-xl font-semibold">Name the table</h2>
+                    <h2 className="mt-2 text-xl font-semibold">Choose the specialty</h2>
                   </div>
                   <label className="space-y-2 text-sm text-muted">
                     <span className="block">Specialty</span>
@@ -221,18 +236,6 @@ export default function StartAGroupPage() {
                       className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
                       placeholder="Seed-stage fintech founders navigating fundraising and senior hiring"
                       maxLength={140}
-                      required
-                    />
-                  </label>
-                  <label className="space-y-2 text-sm text-muted">
-                    <span className="block">Room name</span>
-                    <input
-                      type="text"
-                      value={groupName}
-                      onChange={(event) => setGroupName(event.target.value)}
-                      className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                      placeholder="Digital pharma executives"
-                      maxLength={80}
                       required
                     />
                   </label>
@@ -269,7 +272,7 @@ export default function StartAGroupPage() {
                 <section className="space-y-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Step 4</p>
-                    <h2 className="mt-2 text-xl font-semibold">Entry rules</h2>
+                    <h2 className="mt-2 text-xl font-semibold">Entry rules, price, and name</h2>
                   </div>
                   <label className="space-y-2 text-sm text-muted">
                     <span className="block">How does someone earn a seat?</span>
@@ -285,6 +288,67 @@ export default function StartAGroupPage() {
                       ))}
                     </select>
                   </label>
+                  <p className="rounded-2xl bg-panel px-4 py-3 text-sm text-muted">{entryRuleHelp(entryRule)}</p>
+
+                  <div className="rounded-2xl border border-line bg-panel px-4 py-4">
+                    <p className="text-sm font-medium text-foreground">Price</p>
+                    <p className="mt-1 text-sm text-muted">
+                      80% of rooms are free. Paid rooms should feel earned, not sold.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPricingMode("free")}
+                        className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                          pricingMode === "free"
+                            ? "border-foreground bg-foreground text-white"
+                            : "border-line bg-white text-foreground hover:border-foreground"
+                        }`}
+                      >
+                        Free room
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPricingMode("paid")}
+                        className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                          pricingMode === "paid"
+                            ? "border-foreground bg-foreground text-white"
+                            : "border-line bg-white text-foreground hover:border-foreground"
+                        }`}
+                      >
+                        Paid room
+                      </button>
+                    </div>
+
+                    {pricingMode === "paid" ? (
+                      <label className="mt-4 block space-y-2 text-sm text-muted">
+                        <span className="block">Monthly price per member (EUR)</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={300}
+                          value={monthlyPrice}
+                          onChange={(event) => setMonthlyPrice(event.target.value)}
+                          className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                        />
+                        <span className="block text-xs">You keep 80%. Trust50 keeps 20%.</span>
+                      </label>
+                    ) : null}
+                  </div>
+
+                  <label className="space-y-2 text-sm text-muted">
+                    <span className="block">Room name</span>
+                    <input
+                      type="text"
+                      value={groupName}
+                      onChange={(event) => setGroupName(event.target.value)}
+                      className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                      placeholder={suggestedGroupName}
+                      maxLength={80}
+                    />
+                    <span className="block text-xs">Suggested: {suggestedGroupName}</span>
+                  </label>
+
                   <label className="space-y-2 text-sm text-muted">
                     <span className="block">Who is it for?</span>
                     <textarea
@@ -324,53 +388,6 @@ export default function StartAGroupPage() {
                     </div>
                   </details>
                 </section>
-              ) : null}
-
-              {creationStep === 4 ? (
-                <div className="rounded-2xl border border-line bg-panel px-4 py-4">
-                  <p className="text-sm font-medium text-foreground">Room access</p>
-                  <p className="mt-1 text-sm text-muted">
-                    Most new rooms start free while the founding members prove the signal.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setPricingMode("free")}
-                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                        pricingMode === "free"
-                          ? "border-foreground bg-foreground text-white"
-                          : "border-line bg-white text-foreground hover:border-foreground"
-                      }`}
-                    >
-                      Free room
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPricingMode("paid")}
-                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                        pricingMode === "paid"
-                          ? "border-foreground bg-foreground text-white"
-                          : "border-line bg-white text-foreground hover:border-foreground"
-                      }`}
-                    >
-                      Paid room
-                    </button>
-                  </div>
-
-                  {pricingMode === "paid" ? (
-                    <label className="mt-4 block space-y-2 text-sm text-muted">
-                      <span className="block">Monthly price per member (EUR)</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={300}
-                        value={monthlyPrice}
-                        onChange={(event) => setMonthlyPrice(event.target.value)}
-                        className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
-                      />
-                    </label>
-                  ) : null}
-                </div>
               ) : null}
 
               {flash ? (

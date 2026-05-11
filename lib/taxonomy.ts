@@ -67,10 +67,10 @@ export const TRUST_TAXONOMY: TrustTaxonomyNode[] = [
 export const TAXONOMY_RULE = "A category belongs here only if trust changes the quality of the room.";
 
 export const ENTRY_RULES = [
-  "Invite-only",
-  "Sponsor required",
-  "Member vouch required",
-  "Curator review + vouch",
+  "Invite only",
+  "Vouch required",
+  "Application + curator approval",
+  "Curator review + member vouch",
 ] as const;
 
 const taxonomyByDomain = new Map(TRUST_TAXONOMY.map((node) => [node.domain, node]));

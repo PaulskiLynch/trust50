@@ -94,20 +94,20 @@ function connectionLabel(group: Group, memberRooms: Group[]) {
     return roomTaxonomy.domain === taxonomy.domain || roomTaxonomy.category === taxonomy.category;
   }).length;
 
-  if (relatedRooms === 0) return "New edge for your network";
+  if (relatedRooms === 0) return "Connected to your rooms";
   return `${relatedRooms} of your room${relatedRooms === 1 ? "" : "s"} connect here`;
 }
 
-function shortSpecialty(taxonomy: RoomTaxonomy) {
-  const specialty = taxonomy.specialty.replace(/\s+/g, " ").trim();
-  return specialty.length > 54 ? `${specialty.slice(0, 51)}...` : specialty;
+function specialtyLabel(taxonomy: RoomTaxonomy) {
+  return taxonomy.specialty.replace(/\s+/g, " ").trim();
 }
 
-function ordinal(value: number) {
-  if (value === 1) return "1st";
-  if (value === 2) return "2nd";
-  if (value === 3) return "3rd";
-  return `${value}th`;
+function hiddenReason(group: Group) {
+  if (group.id === "group-women-pharma") {
+    return "This room is for women leaders in pharma. Your current profile does not match that entry signal.";
+  }
+
+  return "Your current profile does not match this room's entry signal.";
 }
 
 function suggestionScore(group: Group, memberRooms: Group[], activeFilter: string) {
@@ -309,8 +309,7 @@ export default function ExploreGroupsPage() {
         </section>
 
         <section id="find-room" className="rounded-[20px] border border-line bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Find your {ordinal(Math.min(memberRooms.length + 1, 4))} room</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight">What kind of room are you missing?</h2>
+          <h2 className="text-xl font-semibold tracking-tight">What kind of room are you missing?</h2>
 
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
             {gapFilters.map((domain) => (
@@ -348,8 +347,8 @@ export default function ExploreGroupsPage() {
                       <p className="mt-1 text-sm text-muted">
                         {priceLabel(group.price)} / {group.memberCount}/50
                       </p>
-                      <p className="mt-2 text-sm text-foreground">
-                        {taxonomy.category} - {shortSpecialty(taxonomy)}
+                      <p className="mt-2 line-clamp-2 text-sm text-foreground">
+                        {specialtyLabel(taxonomy)}
                       </p>
                       <p className="mt-1 text-xs text-muted">
                         {group.owner.name || group.owner.email} / {connectionLabel(group, memberRooms)}
@@ -382,9 +381,33 @@ export default function ExploreGroupsPage() {
           </div>
 
           {excludedRooms.length ? (
-            <div className="mt-5 rounded-2xl border border-line bg-white px-4 py-3 text-sm text-muted">
-              <p className="font-medium text-foreground">Hidden from suggestions</p>
-              <p className="mt-1">Some rooms are omitted when your profile does not match their entry signal.</p>
+            <div className="mt-5 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Not suggested</p>
+              {excludedRooms.map((group) => {
+                const taxonomy = getRoomTaxonomy(group);
+
+                return (
+                  <article key={group.id} className="rounded-2xl border border-line bg-white px-4 py-4 text-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <h3 className="truncate font-semibold text-foreground">{group.name}</h3>
+                        <p className="mt-1 text-muted">
+                          {priceLabel(group.price)} / {group.memberCount}/50
+                        </p>
+                        <p className="mt-2 line-clamp-2 text-foreground">{specialtyLabel(taxonomy)}</p>
+                        <p className="mt-1 text-xs text-muted">{group.owner.name || group.owner.email}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-panel px-3 py-1.5 text-xs font-medium text-muted">
+                        Does not match
+                      </span>
+                    </div>
+                    <details className="mt-3 text-xs text-muted">
+                      <summary className="cursor-pointer font-medium text-foreground">Why?</summary>
+                      <p className="mt-2 leading-5">{hiddenReason(group)}</p>
+                    </details>
+                  </article>
+                );
+              })}
             </div>
           ) : null}
 
