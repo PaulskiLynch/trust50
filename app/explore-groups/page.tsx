@@ -50,8 +50,6 @@ type Group = {
   requests?: Request[];
 };
 
-const preferredGapDomains: TrustDomain[] = ["Local", "Learning", "Family", "Wellness", "Pursuits"];
-
 const searchAliases: Record<string, string[]> = {
   "group-women-pharma": ["pharma", "health", "clinical", "medical", "biotech"],
   "group-digital-pharma": ["pharma", "health", "ai", "digital", "data", "clinical"],
@@ -60,6 +58,17 @@ const searchAliases: Record<string, string[]> = {
   "group-investments": ["investing", "finance", "capital", "cfo", "risk"],
   "group-music-production": ["creative", "music", "audio", "sync"],
   "group-dog-training": ["professional services", "training", "behavior"],
+};
+
+const domainExplainers: Record<TrustDomain, string> = {
+  Professional: "startups, operators, investing, real estate, healthcare, career",
+  Local: "neighborhoods, city life, business, housing, schools, safety",
+  Learning: "AI, coding, business, investing, career change",
+  Family: "parenting, schools, childcare, elder care, special needs",
+  Wellness: "mental health, recovery, chronic illness, care teams",
+  Culture: "identity, faith, diaspora, values, underrepresented groups",
+  Support: "job search, founder support, relocation, caregiving, grief, transitions",
+  Pursuits: "sports, adventure, collecting, investing clubs, travel, creative",
 };
 
 function priceLabel(price: number | null) {
@@ -110,13 +119,14 @@ function hiddenReason(group: Group) {
   return "Your current profile does not match this room's entry signal.";
 }
 
-function suggestionScore(group: Group, memberRooms: Group[], activeFilter: string) {
+function suggestionScore(group: Group, memberRooms: Group[], selectedDomain: TrustDomain | "", selectedCategory: string) {
   const taxonomy = getRoomTaxonomy(group);
   const memberDomains = new Set(memberRooms.map((room) => getRoomTaxonomy(room).domain));
   const memberCategories = new Set(memberRooms.map((room) => getRoomTaxonomy(room).category));
   let score = 0;
 
-  if (taxonomy.domain === activeFilter || taxonomy.category === activeFilter) score += 50;
+  if (selectedDomain && taxonomy.domain === selectedDomain) score += 50;
+  if (selectedCategory && taxonomy.category === selectedCategory) score += 50;
   if (!memberDomains.has(taxonomy.domain)) score += 25;
   if (memberCategories.has(taxonomy.category)) score += 15;
   if (!group.price || group.price <= 0) score += 8;
@@ -131,7 +141,8 @@ export default function ExploreGroupsPage() {
   const [flash, setFlash] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<TrustDomain | "All">("All");
+  const [selectedDomain, setSelectedDomain] = useState<TrustDomain | "">("");
+  const [selectedCategory, setSelectedCategory] = useState("");
 
   const currentUserId = session?.user?.id ?? null;
   const displayName = session?.user?.name || session?.user?.email?.split("@")[0] || "Member";
@@ -167,16 +178,12 @@ export default function ExploreGroupsPage() {
     [currentUserId, groups],
   );
 
-  const memberDomains = useMemo(
-    () => new Set(memberRooms.map((group) => getRoomTaxonomy(group).domain)),
-    [memberRooms],
+  const selectedDomainNode = useMemo(
+    () => TRUST_TAXONOMY.find((node) => node.domain === selectedDomain) ?? null,
+    [selectedDomain],
   );
 
-  const gapFilters = useMemo(() => {
-    const missing = preferredGapDomains.filter((domain) => !memberDomains.has(domain));
-    const fallback = TRUST_TAXONOMY.map((node) => node.domain).filter((domain) => !missing.includes(domain));
-    return [...missing, ...fallback].slice(0, 5);
-  }, [memberDomains]);
+  const listHeading = selectedDomain || selectedCategory || query.trim() ? "Matching rooms" : "Recommended for you";
 
   const suggestedGroups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -190,13 +197,14 @@ export default function ExploreGroupsPage() {
         const aliases = searchAliases[group.id]?.join(" ") || "";
         const haystack = `${group.name} ${group.owner.name || ""} ${group.description || ""} ${group.whoFor} ${group.valueProp} ${taxonomySearchText(taxonomy)} ${aliases}`.toLowerCase();
         const matchesQuery = !normalizedQuery || haystack.includes(normalizedQuery);
-        const matchesFilter = activeFilter === "All" || taxonomy.domain === activeFilter || taxonomy.category === activeFilter;
+        const matchesDomain = !selectedDomain || taxonomy.domain === selectedDomain;
+        const matchesCategory = !selectedCategory || taxonomy.category === selectedCategory;
 
-        return matchesQuery && matchesFilter;
+        return matchesQuery && matchesDomain && matchesCategory;
       })
-      .sort((left, right) => suggestionScore(right, memberRooms, activeFilter) - suggestionScore(left, memberRooms, activeFilter))
+      .sort((left, right) => suggestionScore(right, memberRooms, selectedDomain, selectedCategory) - suggestionScore(left, memberRooms, selectedDomain, selectedCategory))
       .slice(0, 5);
-  }, [activeFilter, currentUserId, groups, memberRooms, query]);
+  }, [currentUserId, groups, memberRooms, query, selectedCategory, selectedDomain]);
 
   const excludedRooms = useMemo(
     () =>
@@ -255,9 +263,6 @@ export default function ExploreGroupsPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Your slots</p>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight">{memberRooms.length}/4 rooms used</h1>
             </div>
-            <span className="rounded-full bg-panel px-3 py-1.5 text-xs font-medium text-muted">
-              Fill the gap
-            </span>
           </div>
 
           <div className="mt-5 space-y-3">
@@ -321,24 +326,46 @@ export default function ExploreGroupsPage() {
             />
           </label>
 
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-            {gapFilters.map((domain) => (
-              <button
-                key={domain}
-                type="button"
-                onClick={() => setActiveFilter(domain)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                  activeFilter === domain
-                    ? "bg-foreground text-white"
-                    : "border border-line bg-white text-muted hover:border-foreground hover:text-foreground"
-                }`}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Domain</span>
+              <select
+                value={selectedDomain}
+                onChange={(event) => {
+                  setSelectedDomain(event.target.value as TrustDomain | "");
+                  setSelectedCategory("");
+                }}
+                className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-foreground"
               >
-                {domain}
-              </button>
-            ))}
+                <option value="">Not selected</option>
+                {TRUST_TAXONOMY.map((node) => (
+                  <option key={node.domain} value={node.domain}>
+                    {node.domain} ({domainExplainers[node.domain]})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Category</span>
+              <select
+                value={selectedCategory}
+                onChange={(event) => setSelectedCategory(event.target.value)}
+                disabled={!selectedDomainNode}
+                className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm outline-none transition disabled:text-muted focus:border-foreground"
+              >
+                <option value="">{selectedDomainNode ? "Not selected" : "Select domain first"}</option>
+                {selectedDomainNode?.categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div className="mt-5 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">{listHeading}</p>
             {suggestedGroups.map((group) => {
               const membership = getMembership(group, currentUserId);
               const taxonomy = getRoomTaxonomy(group);
@@ -423,11 +450,11 @@ export default function ExploreGroupsPage() {
         </section>
 
         <nav className="sticky bottom-4 grid grid-cols-3 overflow-hidden rounded-full border border-line bg-white p-1 shadow-sm">
-          <Link href="/" className="rounded-full px-4 py-2 text-center text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground">
-            Wire
-          </Link>
           <Link href="/explore-groups" className="rounded-full bg-foreground px-4 py-2 text-center text-sm font-medium text-white">
             Rooms
+          </Link>
+          <Link href="/" className="rounded-full px-4 py-2 text-center text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground">
+            Wire
           </Link>
           {currentUserId ? (
             <Link href={`/members/${currentUserId}`} className="rounded-full px-4 py-2 text-center text-sm font-medium text-muted transition hover:bg-panel hover:text-foreground">
