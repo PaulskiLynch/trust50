@@ -191,6 +191,14 @@ function SignOutIcon() {
   );
 }
 
+function LinkedInIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-current">
+      <path d="M6.94 8.5H3.56V20h3.38V8.5ZM5.25 3A1.97 1.97 0 1 0 5.3 6.94 1.97 1.97 0 0 0 5.25 3ZM20.44 12.73c0-3.45-1.84-5.05-4.29-5.05-1.98 0-2.87 1.1-3.37 1.86V8.5H9.4c.04.69 0 11.5 0 11.5h3.38v-6.42c0-.34.02-.68.13-.93.27-.68.88-1.38 1.9-1.38 1.34 0 1.88 1.03 1.88 2.54V20h3.38v-7.27Z" />
+    </svg>
+  );
+}
+
 function getLatestActivityTimestamp(group: Group) {
   const timestamps = group.requests.flatMap((request) => [
     +new Date(request.createdAt),
@@ -235,12 +243,14 @@ function initials(name: string) {
 export default function Home() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const linkedInEnabled = process.env.NEXT_PUBLIC_LINKEDIN_ENABLED === "true";
   const [groups, setGroups] = useState<Group[]>([]);
   const [currentProfile, setCurrentProfile] = useState<CurrentProfile | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isCredentialSigningIn, setIsCredentialSigningIn] = useState(false);
+  const [isLinkedInSigningIn, setIsLinkedInSigningIn] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [supportedItemIds, setSupportedItemIds] = useState<Set<string>>(() => new Set());
@@ -441,6 +451,13 @@ export default function Home() {
     window.location.href = "/";
   }
 
+  async function handleLinkedInLogin() {
+    setFlash(null);
+    setIsLinkedInSigningIn(true);
+    await signIn("linkedin", { callbackUrl: "/" });
+    setIsLinkedInSigningIn(false);
+  }
+
   async function handleSignOut() {
     setFlash(null);
     await signOut({ redirect: false });
@@ -518,6 +535,18 @@ export default function Home() {
                     {isLoggingIn || status === "loading" ? "Signing in..." : "Use test login"}
                   </button>
                 </div>
+
+                {linkedInEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleLinkedInLogin()}
+                    disabled={isLinkedInSigningIn || status === "loading"}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-line bg-[#0A66C2] px-5 py-3 text-sm font-medium text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                  >
+                    <LinkedInIcon />
+                    <span>{isLinkedInSigningIn ? "Connecting..." : "Continue with LinkedIn"}</span>
+                  </button>
+                ) : null}
               </div>
 
               <details className="border-t border-line pt-6">

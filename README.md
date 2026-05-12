@@ -27,6 +27,8 @@ Default local env:
 - `DATABASE_URL` -> SQLite (`file:./prisma/dev.db`)
 - `POSTGRES_DATABASE_URL` -> reserved for hosted Postgres validation and deployment prep
 - `NEXTAUTH_URL` -> local app URL
+- `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` -> optional LinkedIn sign-in
+- `NEXT_PUBLIC_LINKEDIN_ENABLED` -> set to `true` when the LinkedIn button should appear
 
 ## Postgres deployment prep
 
@@ -48,7 +50,7 @@ npm run db:push:postgres
 
 - Next.js App Router
 - Prisma ORM
-- NextAuth credentials auth
+- NextAuth credentials + LinkedIn auth
 - SQLite locally today
 - Postgres intended for production deployment
 
@@ -63,6 +65,9 @@ Before going live:
    - `DATABASE_URL` = hosted Postgres URL
    - `NEXTAUTH_SECRET` = real random secret
    - `NEXTAUTH_URL` = production domain
+   - `LINKEDIN_CLIENT_ID` = LinkedIn app client ID
+   - `LINKEDIN_CLIENT_SECRET` = LinkedIn app client secret
+   - `NEXT_PUBLIC_LINKEDIN_ENABLED` = `true`
 5. Do one deliberate cutover pass:
    - switch `prisma/schema.prisma` datasource to `postgresql`
    - point `DATABASE_URL` at hosted Postgres
