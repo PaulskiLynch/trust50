@@ -110,6 +110,24 @@ function circleContribution(group: Group, currentUserId: string | null) {
   return parts.join(" / ");
 }
 
+function circleTrustLevel(group: Group, currentUserId: string | null) {
+  if (!currentUserId) return "Trust level 00 / 200 - Building trust";
+
+  const trustedHere = (group.trustLinks ?? []).filter((link) => link.receiverUserId === currentUserId).length;
+  const label =
+    trustedHere >= 151
+      ? "Exceptional"
+      : trustedHere >= 101
+        ? "Deeply trusted"
+        : trustedHere >= 51
+          ? "Respected"
+          : trustedHere >= 21
+            ? "Trusted"
+            : "Building trust";
+
+  return `Trust level ${String(Math.min(trustedHere, 200)).padStart(2, "0")} / 200 - ${label}`;
+}
+
 function connectionLabel(group: Group, memberRooms: Group[]) {
   const taxonomy = getRoomTaxonomy(group);
   const relatedRooms = memberRooms.filter((room) => {
@@ -325,10 +343,10 @@ export default function ExploreGroupsPage() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{group.name}</p>
                     <p className="mt-1 text-xs font-medium text-muted">{roomActivity(group, currentUserId)}</p>
+                    <p className="mt-1 text-xs text-muted">{circleTrustLevel(group, currentUserId)}</p>
                     {circleContribution(group, currentUserId) ? (
                       <p className="mt-1 text-xs text-muted">{circleContribution(group, currentUserId)}</p>
                     ) : null}
-                    <p className="mt-1 text-xs text-muted">{priceLabel(group.price)} / {group.memberCount} members</p>
                   </div>
                 </div>
               </Link>
