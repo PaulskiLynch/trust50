@@ -73,22 +73,17 @@ function buildHelpTopics(decisions: { title: string }[], fallback?: string | nul
   return ["Concessions", "VP Product hiring", "Maintenance ops"];
 }
 
-function buildTrustSignals(groups: ProfileGroup[], credibility: ReturnType<typeof buildCredibilityProfile>) {
+function buildTrustSignals(groups: ProfileGroup[], realTrustCount: number) {
   const firstGroup = groups[0]?.name || "Trust50";
-  const secondGroup = groups[1]?.name || firstGroup;
 
-  if (credibility.helpfulRepliesCount > 0) {
+  if (realTrustCount > 0) {
     return [
-      `Trusted by ${credibility.trustCount} ${credibility.trustCount === 1 ? "person" : "people"}`,
-      `Members in ${firstGroup} engaged with this judgment`,
+      `Trusted by ${realTrustCount} ${realTrustCount === 1 ? "person" : "people"}`,
+      `Trust earned through explicit member trust actions in ${firstGroup}`,
     ];
   }
 
-  return [
-    `Trusted by ${Math.max(credibility.trustCount, 2)} people`,
-    `Charlotte Reed vouched for this judgment in ${firstGroup}`,
-    `Olivia Grant used this advice in ${secondGroup}`,
-  ];
+  return [];
 }
 
 export async function getAccessibleProfile(viewerId: string, targetUserId: string) {
@@ -147,7 +142,7 @@ export async function getAccessibleProfile(viewerId: string, targetUserId: strin
   const credibility = buildCredibilityProfile(targetUser.id, activeGroups, targetUser);
   const decisionHistory = buildDecisionHistory(targetUser.id, activeGroups);
   const helpTopics = buildHelpTopics(decisionHistory, targetUser.helpTags || targetUser.stageIndustry);
-  const trustSignals = buildTrustSignals(activeGroups, credibility);
+  const trustSignals = buildTrustSignals(activeGroups, targetUser.trustScoreCached);
 
   return {
     id: targetUser.id,
@@ -228,7 +223,7 @@ export async function getCurrentUserProfile(viewerId: string) {
   const credibility = buildCredibilityProfile(user.id, activeGroups, user);
   const decisionHistory = buildDecisionHistory(user.id, activeGroups);
   const helpTopics = buildHelpTopics(decisionHistory, user.helpTags || user.stageIndustry);
-  const trustSignals = buildTrustSignals(activeGroups, credibility);
+  const trustSignals = buildTrustSignals(activeGroups, user.trustScoreCached);
 
   return {
     id: user.id,

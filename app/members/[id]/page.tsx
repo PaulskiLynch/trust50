@@ -124,7 +124,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 decisionHistory: profile.decisionHistory,
                 helpTopics: profile.helpTopics,
                 hasUserHelpTopics: Boolean(profile.helpTags?.trim()),
-                trustCount: Math.max(profile.credibility.trustCount, profile.trustScoreCached),
+                trustCount: profile.trustScoreCached,
                 activeGroups: profile.activeGroups,
               }}
             />
@@ -167,7 +167,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
               decisionHistory: profile.decisionHistory,
               helpTopics: profile.helpTopics,
               hasUserHelpTopics: Boolean(profile.helpTags?.trim()),
-              trustCount: Math.max(profile.credibility.trustCount, profile.trustScoreCached),
+              trustCount: profile.trustScoreCached,
               activeGroups: profile.activeGroups,
             }}
           />
