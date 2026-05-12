@@ -57,8 +57,8 @@ const fields: ProfileField[] = [
   },
   {
     key: "helpTags",
-    label: "What I can help with",
-    placeholder: "Hiring first sales lead, fundraising strategy, pharma AI adoption",
+    label: "What I can help with (up to 6)",
+    placeholder: "Concessions, VP Product hiring, Maintenance ops, AI adoption",
     textarea: true,
   },
   {
@@ -99,12 +99,21 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
   async function handleSave() {
     setSaving(true);
     setFlash(null);
+    const normalizedForm = {
+      ...form,
+      helpTags: form.helpTags
+        .split(/[,/]/)
+        .map((topic) => topic.trim())
+        .filter(Boolean)
+        .slice(0, 6)
+        .join(", "),
+    };
 
     try {
       const response = await fetch("/api/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(normalizedForm),
       });
       const data = await response.json();
 
@@ -113,6 +122,7 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
       }
 
       setFlash("Profile saved.");
+      setForm(normalizedForm);
     } catch (error) {
       setFlash(error instanceof Error ? error.message : "Unable to save profile.");
     } finally {
@@ -124,7 +134,7 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
     <details id="build-profile" className="group rounded-[24px] border border-line bg-white p-4 shadow-sm">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold">Build my profile</h2>
+          <h2 className="text-base font-semibold">About me</h2>
           <p className="mt-1 text-sm leading-5 text-muted">
             Add context curators use to understand your fit.
           </p>

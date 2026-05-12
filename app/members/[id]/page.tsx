@@ -47,7 +47,7 @@ function MemberTopNav({ currentUserId }: { currentUserId: string }) {
     <header className="mb-5 flex items-center justify-between gap-3">
       <div className="flex items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/trust50-logo.png" alt="Trust50" className="h-11 w-11 rounded-xl object-contain" />
+        <img src="/trust50-logo.png" alt="Trust50" className="h-16 w-16 rounded-2xl object-contain sm:h-14 sm:w-14" />
       </div>
       <div className="flex items-end gap-1 sm:gap-3">
         <Link
@@ -62,7 +62,7 @@ function MemberTopNav({ currentUserId }: { currentUserId: string }) {
           className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
         >
           <RoomsIcon />
-          <span>Rooms</span>
+          <span>Circles</span>
         </Link>
         <Link
           href={`/members/${currentUserId}`}
@@ -115,26 +115,17 @@ export default async function MemberProfilePage({ params }: PageProps) {
         </div>
         <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_0.62fr]">
           <section className="space-y-6">
-            <div className="space-y-2">
-              <div>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-                  {profile.name || "Your profile"}
-                </h1>
-                <p className="mt-1 text-sm text-muted">
-                  Your profile is a feed of judgment, not a resume.
-                </p>
-              </div>
-            </div>
-
             <ProfileCard
+              isOwnProfile
               user={{
                 id: profile.id,
                 name: profile.name,
                 avatarUrl: profile.avatarUrl,
                 decisionHistory: profile.decisionHistory,
                 helpTopics: profile.helpTopics,
-                trustSignals: profile.trustSignals,
+                hasUserHelpTopics: Boolean(profile.helpTags?.trim()),
                 trustCount: Math.max(profile.credibility.trustCount, profile.trustScoreCached),
+                activeGroups: profile.activeGroups,
               }}
             />
           </section>
@@ -142,13 +133,13 @@ export default async function MemberProfilePage({ params }: PageProps) {
           <aside className="space-y-4">
             <ProfileBuilder profile={profile} />
             <section className="rounded-[24px] border border-line bg-white p-4 shadow-sm">
-              <p className="text-sm font-semibold text-foreground">Room slots</p>
-              <p className="mt-1 text-sm text-muted">{profile.activeGroups.length}/4 member rooms used</p>
+              <p className="text-sm font-semibold text-foreground">Circle slots</p>
+              <p className="mt-1 text-sm text-muted">{profile.activeGroups.length}/4 member circles used</p>
               <Link
                 href="/explore-groups"
                 className="mt-3 inline-flex rounded-full border border-line bg-panel px-3 py-1.5 text-sm font-medium text-foreground transition hover:border-foreground"
               >
-                Manage rooms
+                Manage circles
               </Link>
             </section>
           </aside>
@@ -165,25 +156,19 @@ export default async function MemberProfilePage({ params }: PageProps) {
             <Link href="/" className="text-sm font-medium text-muted transition hover:text-foreground">
               Back to network home
             </Link>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                {profile.name || profile.email}
-              </h1>
-              <p className="mt-1 text-sm text-muted">
-                Decisions this member has made that might help you.
-              </p>
-            </div>
           </div>
 
           <ProfileCard
+            isOwnProfile={false}
             user={{
               id: profile.id,
               name: profile.name,
               avatarUrl: profile.avatarUrl,
               decisionHistory: profile.decisionHistory,
               helpTopics: profile.helpTopics,
-              trustSignals: profile.trustSignals,
+              hasUserHelpTopics: Boolean(profile.helpTags?.trim()),
               trustCount: Math.max(profile.credibility.trustCount, profile.trustScoreCached),
+              activeGroups: profile.activeGroups,
             }}
           />
         </section>

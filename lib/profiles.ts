@@ -22,15 +22,15 @@ function fallbackDecisionHistory() {
   return [
     {
       title: "Hired first VP Product in Warsaw",
-      impact: "3 members found this helpful",
+      impact: "3 found helpful (1 day ago)",
     },
     {
       title: "Held rate on concessions during softening market",
-      impact: "2 members used this in their decision",
+      impact: "2 used in decision (3 days ago)",
     },
     {
       title: "Switched from outsourced to in-house maintenance",
-      impact: "4 members asked follow-ups",
+      impact: "4 asked follow-ups (last week)",
     },
   ];
 }
@@ -48,8 +48,8 @@ function buildDecisionHistory(userId: string, groups: ProfileGroup[]) {
           title: decisionTitle(request.title || request.content),
           impact:
             request.creatorId === userId
-              ? `${impactCount} member${impactCount === 1 ? "" : "s"} engaged with this`
-              : `${impactCount} member${impactCount === 1 ? "" : "s"} asked follow-ups`,
+              ? `${impactCount} found helpful (recently)`
+              : `${impactCount} asked follow-ups (recently)`,
           groupName: group.name,
         };
       }),
