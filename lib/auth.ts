@@ -1,6 +1,5 @@
 import { getServerSession, type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import LinkedInProvider from "next-auth/providers/linkedin";
 
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/passwords";
@@ -141,10 +140,37 @@ const providers: NextAuthOptions["providers"] = [
 
 if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
   providers.push(
-    LinkedInProvider({
+    {
+      id: "linkedin",
+      name: "LinkedIn",
+      type: "oauth",
       clientId: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-    }),
+      wellKnown: "https://www.linkedin.com/oauth/.well-known/openid-configuration",
+      issuer: "https://www.linkedin.com/oauth",
+      authorization: {
+        params: {
+          scope: "openid profile email",
+        },
+      },
+      client: {
+        token_endpoint_auth_method: "client_secret_post",
+      },
+      idToken: true,
+      profile(profile) {
+        return {
+          id: String(profile.sub ?? ""),
+          name: typeof profile.name === "string" ? profile.name : "LinkedIn member",
+          email: typeof profile.email === "string" ? profile.email : undefined,
+          image: typeof profile.picture === "string" ? profile.picture : undefined,
+        };
+      },
+      style: {
+        logo: "/linkedin.svg",
+        bg: "#0A66C2",
+        text: "#fff",
+      },
+    },
   );
 }
 
