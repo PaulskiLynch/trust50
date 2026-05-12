@@ -38,11 +38,20 @@ export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
               <Link
                 key={group.id}
                 href={`/groups/${group.id}`}
-                className="rounded-2xl border border-line bg-panel px-4 py-3 text-sm font-medium text-foreground transition hover:border-foreground"
+                className="flex items-center gap-2 rounded-2xl border border-line bg-panel px-4 py-3 text-sm font-medium text-foreground transition hover:border-foreground"
               >
+                <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
                 {group.name}
               </Link>
             ))}
+            {isOwnProfile && user.activeGroups.length < 4 ? (
+              <Link
+                href="/explore-groups"
+                className="flex items-center justify-center rounded-2xl border border-dashed border-line bg-white px-4 py-3 text-sm font-medium text-muted transition hover:border-foreground hover:text-foreground"
+              >
+                + Circle
+              </Link>
+            ) : null}
             {!user.activeGroups.length ? (
               <span className="rounded-2xl border border-dashed border-line bg-panel px-4 py-3 text-sm font-medium text-muted">
                 No active circles yet
