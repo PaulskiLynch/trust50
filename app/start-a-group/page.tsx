@@ -35,6 +35,11 @@ export default function StartAGroupPage() {
   const [flash, setFlash] = useState<string | null>(null);
   const [isSubmittingInterest, setIsSubmittingInterest] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [proposalName, setProposalName] = useState("");
+  const [proposalReason, setProposalReason] = useState("");
+  const [proposalSecond, setProposalSecond] = useState("");
+  const [proposalEmail, setProposalEmail] = useState(session?.user?.email || "");
+  const [proposalFlash, setProposalFlash] = useState<string | null>(null);
 
   const isSignedIn = !!session?.user?.id;
   const selectedTaxonomy = getTaxonomyNode(domain);
@@ -137,6 +142,56 @@ export default function StartAGroupPage() {
     }
   }
 
+  async function handleDomainProposal(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setProposalFlash(null);
+
+    if (!proposalName.trim()) {
+      setProposalFlash("Name the domain you want to propose.");
+      return;
+    }
+
+    if (!proposalEmail.trim()) {
+      setProposalFlash("Add an email so we can follow up on the proposal.");
+      return;
+    }
+
+    setIsSubmittingInterest(true);
+
+    try {
+      const response = await fetch("/api/interest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: proposalEmail.trim().toLowerCase(),
+          kind: "curator",
+          name: session?.user?.name || name || "",
+          source: "Proposed new trust domain",
+          signal: proposalName.trim(),
+          note: [
+            proposalReason.trim() ? `Why this domain belongs here: ${proposalReason.trim()}` : "",
+            proposalSecond.trim() ? `Who would second it: ${proposalSecond.trim()}` : "",
+            "Activation rule: first member proposes, second member seconds, then the domain can become active.",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Unable to save your proposal.");
+
+      setProposalFlash("Proposal saved. Once a second member seconds it, this can become an active domain.");
+      setProposalName("");
+      setProposalReason("");
+      setProposalSecond("");
+    } catch (error) {
+      setProposalFlash(error instanceof Error ? error.message : "Unable to save your proposal.");
+    } finally {
+      setIsSubmittingInterest(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background px-6 py-12 text-foreground">
       <div className="mx-auto max-w-3xl space-y-6">
@@ -218,6 +273,71 @@ export default function StartAGroupPage() {
                   <div className="rounded-2xl bg-panel px-4 py-3 text-sm text-muted">
                     Trust test: <span className="font-medium text-foreground">{selectedTaxonomy.trustTest}</span>
                   </div>
+
+                  <section className="rounded-2xl border border-line bg-white p-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">Don&apos;t see your domain?</p>
+                      <p className="text-sm text-muted">Propose one. First member to propose plus second member to second makes it active.</p>
+                    </div>
+
+                    <form onSubmit={handleDomainProposal} className="mt-4 space-y-3">
+                      <label className="space-y-2 text-sm text-muted">
+                        <span className="block">Proposed domain</span>
+                        <input
+                          type="text"
+                          value={proposalName}
+                          onChange={(event) => setProposalName(event.target.value)}
+                          className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                          placeholder="Example: Education, Climate, Supply Chains"
+                          maxLength={80}
+                        />
+                      </label>
+                      <label className="space-y-2 text-sm text-muted">
+                        <span className="block">Why does trust change the quality of this domain?</span>
+                        <textarea
+                          value={proposalReason}
+                          onChange={(event) => setProposalReason(event.target.value)}
+                          className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                          placeholder="Explain the kind of judgment, access, or vulnerability that makes this a trust-shaped domain."
+                          maxLength={400}
+                        />
+                      </label>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="space-y-2 text-sm text-muted">
+                          <span className="block">Who would second it?</span>
+                          <input
+                            type="text"
+                            value={proposalSecond}
+                            onChange={(event) => setProposalSecond(event.target.value)}
+                            className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                            placeholder="A member, curator, or circle that would back this"
+                            maxLength={120}
+                          />
+                        </label>
+                        <label className="space-y-2 text-sm text-muted">
+                          <span className="block">Contact email</span>
+                          <input
+                            type="email"
+                            value={proposalEmail}
+                            onChange={(event) => setProposalEmail(event.target.value)}
+                            className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                            placeholder="you@company.com"
+                            maxLength={160}
+                          />
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="submit"
+                          disabled={isSubmittingInterest}
+                          className="rounded-full border border-line bg-panel px-4 py-2 text-sm font-medium text-foreground transition hover:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isSubmittingInterest ? "Saving..." : "+ Propose a new domain"}
+                        </button>
+                        {proposalFlash ? <p className="text-sm text-muted">{proposalFlash}</p> : null}
+                      </div>
+                    </form>
+                  </section>
                 </section>
               ) : null}
 
