@@ -64,7 +64,7 @@ Before going live:
 4. In Vercel, set:
    - `DATABASE_URL` = hosted Postgres URL
    - `NEXTAUTH_SECRET` = real random secret
-   - `NEXTAUTH_URL` = production domain
+   - `NEXTAUTH_URL` = `https://trust50.com`
    - `LINKEDIN_CLIENT_ID` = LinkedIn app client ID
    - `LINKEDIN_CLIENT_SECRET` = LinkedIn app client secret
    - `NEXT_PUBLIC_LINKEDIN_ENABLED` = `true`
