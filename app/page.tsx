@@ -608,7 +608,9 @@ export default function Home() {
           </section>
 
           <footer className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted">
-            <span>Privacy policy</span>
+            <Link href="/privacy" className="font-medium transition hover:text-foreground">
+              Privacy policy
+            </Link>
             <span>Terms</span>
             <Link href="/how-it-works" className="font-medium transition hover:text-foreground">
               How it works
