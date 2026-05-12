@@ -6,11 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   SAMPLE_ROOM_TAXONOMY,
-  TRUST_TAXONOMY,
   fallbackRoomTaxonomy,
   taxonomySearchText,
   type RoomTaxonomy,
-  type TrustDomain,
 } from "@/lib/taxonomy";
 
 type User = {
@@ -28,11 +26,20 @@ type Membership = {
 
 type Request = {
   id: string;
+  creatorId?: string;
   status: string;
   outcome?: string | null;
   resolvedAt?: string | null;
   createdAt: string;
-  replies?: unknown[];
+  replies?: { senderId?: string }[];
+};
+
+type TrustLink = {
+  id: string;
+  giverUserId: string;
+  receiverUserId: string;
+  roomId: string;
+  status: string;
 };
 
 type Group = {
@@ -48,6 +55,7 @@ type Group = {
   owner: User;
   memberships: Membership[];
   requests?: Request[];
+  trustLinks?: TrustLink[];
 };
 
 const searchAliases: Record<string, string[]> = {
@@ -58,50 +66,6 @@ const searchAliases: Record<string, string[]> = {
   "group-investments": ["investing", "finance", "capital", "cfo", "risk"],
   "group-music-production": ["creative", "music", "audio", "sync"],
   "group-dog-training": ["professional services", "training", "behavior"],
-};
-
-const situationOptions: Record<string, string[]> = {
-  Startups: ["Hiring", "Fundraising", "Seed stage", "Growth", "Warsaw"],
-  Operators: ["Hiring", "Execution", "Team design", "Systems", "Scale"],
-  Investing: ["Underwriting", "CFO search", "Deal flow", "Risk", "Private markets"],
-  "Real Estate": ["Leasing", "Maintenance", "Concessions", "Local ops", "Property managers"],
-  Healthcare: ["Pharma", "AI adoption", "Clinical operations", "Regulatory", "Data strategy"],
-  Career: ["Job search", "Promotion", "Career change", "Negotiation", "Leadership"],
-  Neighborhoods: ["Local advice", "Safety", "Housing", "Schools", "City life"],
-  "City Life": ["Relocation", "Housing", "Local business", "Schools", "Safety"],
-  "Local Business": ["Operators", "Hiring", "Customers", "Real estate", "Local trust"],
-  Housing: ["Buying", "Renting", "Neighbors", "Renovation", "Local rules"],
-  Schools: ["Admissions", "Special needs", "Parenting", "Local choices", "Transitions"],
-  Safety: ["Neighborhood", "Schools", "Care teams", "Local alerts", "Accountability"],
-  "AI Skills": ["AI adoption", "Workflow", "Career change", "Regulated teams", "Builders"],
-  Coding: ["First app", "Career change", "AI tools", "Debugging", "Portfolio"],
-  Business: ["Sales", "Operations", "Pricing", "Hiring", "Strategy"],
-  "Career Change": ["First role", "Portfolio", "Network", "Interviewing", "Confidence"],
-  Parenting: ["Schools", "Childcare", "Raising twins", "Teen years", "Special needs"],
-  Childcare: ["Hiring help", "Safety", "Schools", "Schedules", "Local support"],
-  "Elder Care": ["Care teams", "Housing", "Medical decisions", "Family planning", "Burnout"],
-  "Special Needs": ["Schools", "Care teams", "Advocacy", "Local support", "Transitions"],
-  "Mental Health": ["Burnout", "Recovery", "Care teams", "Work", "Family"],
-  Recovery: ["Peer support", "Work", "Family", "Relapse prevention", "Care teams"],
-  "Chronic Illness": ["Care teams", "Work", "Family", "Treatment decisions", "Local support"],
-  "Care Teams": ["Coordination", "Family", "Healthcare", "Burnout", "Local support"],
-  Identity: ["Belonging", "Leadership", "Family", "Work", "Safety"],
-  Faith: ["Community", "Family", "Schools", "Values", "Local"],
-  Diaspora: ["Relocation", "Family", "Business", "Identity", "Local"],
-  Values: ["Family", "Work", "Community", "Schools", "Leadership"],
-  "Underrepresented Groups": ["Leadership", "Career", "Support", "Safety", "Belonging"],
-  "Job Search": ["Warm intros", "Interviewing", "Negotiation", "Career change", "Confidence"],
-  "Founder Support": ["Burnout", "Fundraising", "Hiring", "Leadership", "Peer support"],
-  Relocation: ["Housing", "Schools", "Local trust", "Career", "Family"],
-  Caregiving: ["Elder care", "Care teams", "Burnout", "Family", "Work"],
-  Grief: ["Peer support", "Family", "Work", "Transitions", "Care"],
-  "Life Transitions": ["Career", "Family", "Relocation", "Support", "Identity"],
-  "Competitive Sports": ["Training", "Coaches", "Teams", "Injuries", "Competition"],
-  "Outdoor Adventure": ["Safety", "Travel", "Gear", "Training", "Local knowledge"],
-  Collecting: ["Authentication", "Markets", "Deal flow", "Reputation", "Specialists"],
-  "Investing Clubs": ["Thesis", "Risk", "Deal flow", "Portfolio", "Private markets"],
-  "Private Travel": ["Safety", "Family", "Local knowledge", "Access", "Planning"],
-  "Creative Practice": ["Clients", "Collaborators", "Pricing", "Training", "Reputation"],
 };
 
 function priceLabel(price: number | null) {
@@ -126,7 +90,24 @@ function roomActivity(group: Group, currentUserId: string | null) {
 
   if (pendingMembers) return `${pendingMembers} candidate${pendingMembers === 1 ? "" : "s"} need vouches`;
   if (openRequests.length) return `${openRequests.length} signal${openRequests.length === 1 ? "" : "s"} need you`;
-  return "Quiet";
+  return "Awaiting signals - add a decision to wake it up";
+}
+
+function circleContribution(group: Group, currentUserId: string | null) {
+  if (!currentUserId) return "";
+
+  const decisionCount = (group.requests ?? []).filter(
+    (request) =>
+      request.creatorId === currentUserId ||
+      (request.replies ?? []).some((reply) => reply.senderId === currentUserId),
+  ).length;
+  const trustedHere = (group.trustLinks ?? []).filter((link) => link.receiverUserId === currentUserId).length;
+  const parts = [
+    decisionCount ? `You gave ${decisionCount} decision${decisionCount === 1 ? "" : "s"}` : null,
+    trustedHere ? `Trusted by ${trustedHere} here` : null,
+  ].filter(Boolean);
+
+  return parts.join(" / ");
 }
 
 function connectionLabel(group: Group, memberRooms: Group[]) {
@@ -152,16 +133,36 @@ function hiddenReason(group: Group) {
   return "Your current profile does not match this circle's entry signal.";
 }
 
-function suggestionScore(group: Group, memberRooms: Group[], selectedDomain: TrustDomain | "", selectedFocus: string, selectedSituation: string) {
+function tokenizeSearch(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 1);
+}
+
+function searchHaystack(group: Group) {
+  const taxonomy = getRoomTaxonomy(group);
+  const aliases = searchAliases[group.id]?.join(" ") || "";
+  return `${group.name} ${group.owner.name || ""} ${group.description || ""} ${group.whoFor} ${group.valueProp} ${taxonomySearchText(taxonomy)} ${aliases}`.toLowerCase();
+}
+
+function queryMatchScore(group: Group, query: string) {
+  const tokens = tokenizeSearch(query);
+  if (!tokens.length) return 0;
+
+  const haystack = searchHaystack(group);
+  return tokens.reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0);
+}
+
+function suggestionScore(group: Group, memberRooms: Group[], query: string) {
   const taxonomy = getRoomTaxonomy(group);
   const memberDomains = new Set(memberRooms.map((room) => getRoomTaxonomy(room).domain));
   const memberCategories = new Set(memberRooms.map((room) => getRoomTaxonomy(room).category));
-  const searchText = taxonomySearchText(taxonomy).toLowerCase();
   let score = 0;
 
-  if (selectedDomain && taxonomy.domain === selectedDomain) score += 50;
-  if (selectedFocus && taxonomy.category === selectedFocus) score += 50;
-  if (selectedSituation && searchText.includes(selectedSituation.toLowerCase())) score += 30;
+  score += queryMatchScore(group, query) * 30;
   if (!memberDomains.has(taxonomy.domain)) score += 25;
   if (memberCategories.has(taxonomy.category)) score += 15;
   if (!group.price || group.price <= 0) score += 8;
@@ -176,9 +177,6 @@ export default function ExploreGroupsPage() {
   const [flash, setFlash] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [selectedDomain, setSelectedDomain] = useState<TrustDomain | "">("");
-  const [selectedFocus, setSelectedFocus] = useState("");
-  const [selectedSituation, setSelectedSituation] = useState("");
 
   const currentUserId = session?.user?.id ?? null;
 
@@ -213,13 +211,9 @@ export default function ExploreGroupsPage() {
     [currentUserId, groups],
   );
 
-  const selectedDomainNode = useMemo(
-    () => TRUST_TAXONOMY.find((node) => node.domain === selectedDomain) ?? null,
-    [selectedDomain],
-  );
-
-  const selectedSituationOptions = useMemo(() => (selectedFocus ? situationOptions[selectedFocus] ?? [] : []), [selectedFocus]);
-  const hasPath = !!selectedDomain || !!selectedFocus || !!selectedSituation || !!query.trim();
+  const normalizedQuery = query.trim();
+  const queryTokens = useMemo(() => tokenizeSearch(normalizedQuery), [normalizedQuery]);
+  const hasSearch = queryTokens.length > 0;
 
   const candidateGroups = useMemo(
     () =>
@@ -231,41 +225,25 @@ export default function ExploreGroupsPage() {
   );
 
   const strongMatches = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
     return candidateGroups
       .filter((group) => {
-        const taxonomy = getRoomTaxonomy(group);
-        const aliases = searchAliases[group.id]?.join(" ") || "";
-        const haystack = `${group.name} ${group.owner.name || ""} ${group.description || ""} ${group.whoFor} ${group.valueProp} ${taxonomySearchText(taxonomy)} ${aliases}`.toLowerCase();
-        const matchesQuery = !normalizedQuery || haystack.includes(normalizedQuery);
-        const matchesDomain = !selectedDomain || taxonomy.domain === selectedDomain;
-        const matchesFocus = !selectedFocus || taxonomy.category === selectedFocus;
-        const matchesSituation = !selectedSituation || haystack.includes(selectedSituation.toLowerCase());
-
-        return matchesQuery && matchesDomain && matchesFocus && matchesSituation;
+        if (!hasSearch) return true;
+        return queryMatchScore(group, normalizedQuery) >= Math.max(2, Math.ceil(queryTokens.length * 0.66));
       })
-      .sort((left, right) => suggestionScore(right, memberRooms, selectedDomain, selectedFocus, selectedSituation) - suggestionScore(left, memberRooms, selectedDomain, selectedFocus, selectedSituation))
+      .sort((left, right) => suggestionScore(right, memberRooms, normalizedQuery) - suggestionScore(left, memberRooms, normalizedQuery))
       .slice(0, 3);
-  }, [candidateGroups, memberRooms, query, selectedDomain, selectedFocus, selectedSituation]);
+  }, [candidateGroups, hasSearch, memberRooms, normalizedQuery, queryTokens.length]);
 
   const adjacentGroups = useMemo(() => {
     const strongIds = new Set(strongMatches.map((group) => group.id));
-    if (!hasPath) return [];
+    if (!hasSearch) return [];
 
     return candidateGroups
       .filter((group) => !strongIds.has(group.id))
-      .filter((group) => {
-        const taxonomy = getRoomTaxonomy(group);
-        return (
-          (!!selectedDomain && taxonomy.domain === selectedDomain) ||
-          (!!selectedFocus && taxonomy.category === selectedFocus) ||
-          (!!selectedSituation && taxonomySearchText(taxonomy).toLowerCase().includes(selectedSituation.toLowerCase()))
-        );
-      })
-      .sort((left, right) => suggestionScore(right, memberRooms, selectedDomain, selectedFocus, selectedSituation) - suggestionScore(left, memberRooms, selectedDomain, selectedFocus, selectedSituation))
+      .filter((group) => queryMatchScore(group, normalizedQuery) > 0)
+      .sort((left, right) => suggestionScore(right, memberRooms, normalizedQuery) - suggestionScore(left, memberRooms, normalizedQuery))
       .slice(0, 3);
-  }, [candidateGroups, hasPath, memberRooms, selectedDomain, selectedFocus, selectedSituation, strongMatches]);
+  }, [candidateGroups, hasSearch, memberRooms, normalizedQuery, strongMatches]);
 
   const excludedRooms = useMemo(
     () =>
@@ -321,8 +299,8 @@ export default function ExploreGroupsPage() {
         <section className="rounded-[20px] border border-line bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Your slots</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">{memberRooms.length}/4 circles used</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Your circles</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">{memberRooms.length}/4 used</h1>
             </div>
           </div>
 
@@ -346,24 +324,15 @@ export default function ExploreGroupsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{group.name}</p>
-                    <p className="mt-1 text-xs text-muted">
-                      {priceLabel(group.price)} / {group.memberCount} members
-                    </p>
+                    <p className="mt-1 text-xs font-medium text-muted">{roomActivity(group, currentUserId)}</p>
+                    {circleContribution(group, currentUserId) ? (
+                      <p className="mt-1 text-xs text-muted">{circleContribution(group, currentUserId)}</p>
+                    ) : null}
+                    <p className="mt-1 text-xs text-muted">{priceLabel(group.price)} / {group.memberCount} members</p>
                   </div>
-                  <p className="shrink-0 text-right text-xs font-medium text-muted">{roomActivity(group, currentUserId)}</p>
                 </div>
               </Link>
             ))}
-
-            {memberRooms.length < 4 ? (
-              <button
-                type="button"
-                onClick={() => document.getElementById("find-room")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                className="w-full rounded-2xl border border-dashed border-line bg-white px-4 py-4 text-left text-sm font-medium text-foreground transition hover:border-foreground"
-              >
-                + Add {memberRooms.length ? "next" : "first"} circle
-              </button>
-            ) : null}
 
             <Link
               href="/start-a-group"
@@ -378,97 +347,18 @@ export default function ExploreGroupsPage() {
           <h2 className="text-xl font-semibold tracking-tight">What kind of circle are you missing?</h2>
 
           <label className="mt-4 block space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Search by keyword</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Search</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none transition focus:border-foreground"
-              placeholder="Keyword, city, industry, or decision..."
+              placeholder="founders in Warsaw for toys"
             />
           </label>
 
-          <div className="mt-5 space-y-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Domain</p>
-              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                {TRUST_TAXONOMY.map((node) => {
-                  const active = selectedDomain === node.domain;
-
-                  return (
-                    <button
-                      key={node.domain}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDomain(active ? "" : node.domain);
-                        setSelectedFocus("");
-                        setSelectedSituation("");
-                      }}
-                      className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
-                        active ? "border-foreground bg-foreground text-white" : "border-line bg-white text-foreground hover:border-foreground"
-                      }`}
-                    >
-                      {node.domain}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {selectedDomainNode ? (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Focus</p>
-                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                  {selectedDomainNode.categories.map((focus) => {
-                    const active = selectedFocus === focus;
-
-                    return (
-                      <button
-                        key={focus}
-                        type="button"
-                        onClick={() => {
-                          setSelectedFocus(active ? "" : focus);
-                          setSelectedSituation("");
-                        }}
-                        className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
-                          active ? "border-foreground bg-foreground text-white" : "border-line bg-white text-foreground hover:border-foreground"
-                        }`}
-                      >
-                        {focus}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-
-            {selectedSituationOptions.length ? (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Situation</p>
-                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                  {selectedSituationOptions.map((situation) => {
-                    const active = selectedSituation === situation;
-
-                    return (
-                      <button
-                        key={situation}
-                        type="button"
-                        onClick={() => setSelectedSituation(active ? "" : situation)}
-                        className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
-                          active ? "border-foreground bg-foreground text-white" : "border-line bg-white text-foreground hover:border-foreground"
-                        }`}
-                      >
-                        {situation}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-          </div>
-
           <div className="mt-5 space-y-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-              {hasPath ? "Strong matches" : "Recommended for you"}
+              {hasSearch ? `Circles matching "${normalizedQuery}"` : "Recommended for you"}
             </p>
             {strongMatches.map((group) => {
               const membership = getMembership(group, currentUserId);
@@ -514,7 +404,7 @@ export default function ExploreGroupsPage() {
               );
             })}
 
-            {hasPath && adjacentGroups.length ? (
+            {hasSearch && adjacentGroups.length ? (
               <div className="space-y-3 pt-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Adjacent circles</p>
                 {adjacentGroups.map((group) => {
@@ -563,13 +453,19 @@ export default function ExploreGroupsPage() {
 
             {!loading && !strongMatches.length ? (
               <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-5 text-sm text-muted">
-                <p className="font-medium text-foreground">No trusted circle exists for this exact context yet.</p>
-                <p className="mt-1">Start one for this gap, or loosen the path above.</p>
+                <p className="font-medium text-foreground">
+                  {hasSearch ? `No circles match "${normalizedQuery}" yet.` : "No recommended circles yet."}
+                </p>
+                {hasSearch && adjacentGroups.length ? (
+                  <p className="mt-1">The adjacent circles above are nearby, but not exact.</p>
+                ) : (
+                  <p className="mt-1">Start one for this gap, or search for a broader context.</p>
+                )}
                 <Link
-                  href="/start-a-group"
+                  href={hasSearch ? `/start-a-group?name=${encodeURIComponent(normalizedQuery)}` : "/start-a-group"}
                   className="mt-4 inline-flex rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
                 >
-                  Start a circle for this gap
+                  {hasSearch ? `Start a circle - "${normalizedQuery}"` : "Start a circle for this gap"}
                 </Link>
               </div>
             ) : null}
