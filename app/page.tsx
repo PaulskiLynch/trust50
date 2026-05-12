@@ -11,6 +11,7 @@ type User = {
   name: string | null;
   avatarUrl?: string | null;
   headline?: string | null;
+  trustLevelCached?: string | null;
 };
 
 type CurrentProfile = {
@@ -67,11 +68,13 @@ type FeedItem = {
   discussionId: string;
   memberName: string;
   memberAvatarUrl?: string | null;
+  memberTrustLevel: string;
   question: string;
   preview: string;
   socialProof: string;
   supportCount: number;
-  mediaUrl?: string | null;
+  decisionBadge: string;
+  supporterAvatars: { id: string; name: string; avatarUrl?: string | null }[];
   kind: "question" | "vouch";
   candidateCount?: number;
   timestamp: number;
@@ -99,16 +102,8 @@ function supportCountLabel(count: number) {
 }
 
 function getSupportCount(request: Request) {
-  return Math.max(0, request.replies.length * 2 + (request.mediaUrl ? 1 : 0));
+  return Math.max(0, request.replies.length * 2);
 }
-
-const sampleMediaUrls = [
-  "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1576086213369-97a306d36557?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80",
-];
 
 const emptyWirePreviews = [
   {
@@ -130,12 +125,6 @@ const emptyWirePreviews = [
     meta: "Fast replies recently",
   },
 ];
-
-function getSampleMediaUrl(groupName: string, requestId: string) {
-  const key = `${groupName}-${requestId}`;
-  const index = [...key].reduce((total, char) => total + char.charCodeAt(0), 0) % sampleMediaUrls.length;
-  return sampleMediaUrls[index];
-}
 
 function SupportIcon() {
   return (
@@ -224,6 +213,25 @@ function getRepliesInMotion(group: Group) {
   return group.requests.filter((request) => request.status === "open" && request.replies.length > 0).length;
 }
 
+function decisionBadgeFor(request: Request, groupName: string) {
+  const text = `${request.title || ""} ${request.content} ${groupName}`.toLowerCase();
+
+  if (text.match(/hire|candidate|vp|role|product/)) return "Hiring decision";
+  if (text.match(/risk|underwrite|investment|capital|fund/)) return "Investment judgment";
+  if (text.match(/concession|rate|leasing|maintenance|property/)) return "Operator decision";
+  if (text.match(/ai|data|automation/)) return "AI adoption";
+  return "Decision request";
+}
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 export default function Home() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -235,6 +243,7 @@ export default function Home() {
   const [isCredentialSigningIn, setIsCredentialSigningIn] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
+  const [supportedItemIds, setSupportedItemIds] = useState<Set<string>>(() => new Set());
 
   const currentUserId = session?.user?.id ?? null;
 
@@ -316,11 +325,20 @@ export default function Home() {
             discussionId: request.id,
             memberName: request.creator?.name || request.creator?.email || "Unknown member",
             memberAvatarUrl: request.creator?.avatarUrl ?? null,
+            memberTrustLevel: request.creator?.trustLevelCached || "Building trust",
             question: discussionTitle(request),
             preview: shortenText(request.content, 150),
             socialProof: replyCountLabel(request.replies.length),
             supportCount: getSupportCount(request),
-            mediaUrl: request.mediaUrl ?? getSampleMediaUrl(group.name, request.id),
+            decisionBadge: decisionBadgeFor(request, group.name),
+            supporterAvatars: request.replies
+              .filter((reply) => reply.sender)
+              .slice(0, 3)
+              .map((reply) => ({
+                id: reply.senderId,
+                name: reply.sender?.name || reply.sender?.email || "Member",
+                avatarUrl: reply.sender?.avatarUrl ?? null,
+              })),
             kind: "question",
             timestamp: lastActivity,
           });
@@ -342,11 +360,20 @@ export default function Home() {
         discussionId: "",
         memberName: "Voting",
         memberAvatarUrl: null,
-        question: `${candidateCount} candidate${candidateCount === 1 ? "" : "s"} need room vouches`,
-        preview: "The room needs a quick read on who belongs at the table.",
+        memberTrustLevel: "Room read",
+        question: `${candidateCount} candidate${candidateCount === 1 ? "" : "s"} need circle vouches`,
+        preview: "The circle needs a quick read on who belongs at the table.",
         socialProof: `${candidateCount} waiting`,
         supportCount: candidateCount,
-        mediaUrl: null,
+        decisionBadge: "Membership decision",
+        supporterAvatars: group.memberships
+          .filter((membership) => membership.status === "active")
+          .slice(0, 3)
+          .map((membership) => ({
+            id: membership.userId,
+            name: "Member",
+            avatarUrl: null,
+          })),
         kind: "vouch" as const,
         candidateCount,
         timestamp: Date.now(),
@@ -702,36 +729,71 @@ export default function Home() {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium text-foreground">{item.memberName}</p>
+                    <span className="rounded-full border border-line bg-white px-2.5 py-1 text-xs font-medium text-muted">
+                      {item.memberTrustLevel}
+                    </span>
                     <span className="rounded-full bg-panel px-2.5 py-1 text-xs font-medium text-muted">
                       {item.groupName}
                     </span>
                   </div>
-                  <p className="mt-2 text-base font-semibold leading-6 text-foreground">&ldquo;{item.question}&rdquo;</p>
+                  <div className="mt-2 inline-flex rounded-full border border-line bg-panel px-2.5 py-1 text-xs font-medium text-muted">
+                    {item.decisionBadge}
+                  </div>
+                  <p className="mt-2 text-base font-semibold leading-6 text-foreground">
+                    {item.kind === "vouch" ? item.question : `"${item.question}"`}
+                  </p>
                   <p className="mt-2 text-sm leading-6 text-muted">
-                    {item.memberName}: &ldquo;{item.preview}&rdquo;
+                    {item.kind === "vouch" ? item.preview : `${item.memberName}: "${item.preview}"`}
                   </p>
-                  {item.mediaUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.mediaUrl}
-                      alt=""
-                      className="mt-3 aspect-[16/9] w-full rounded-2xl border border-line object-cover"
-                    />
-                  ) : null}
-                  <p className="mt-2 text-xs font-medium text-muted">
-                    {supportCountLabel(item.supportCount)} · {item.socialProof}
-                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
+                    {item.supporterAvatars.length ? (
+                      <div className="flex -space-x-2">
+                        {item.supporterAvatars.map((supporter) =>
+                          supporter.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={supporter.id}
+                              src={supporter.avatarUrl}
+                              alt={supporter.name}
+                              className="h-6 w-6 rounded-full border border-white object-cover"
+                            />
+                          ) : (
+                            <span
+                              key={supporter.id}
+                              className="flex h-6 w-6 items-center justify-center rounded-full border border-white bg-stone-200 text-[10px] font-semibold text-stone-700"
+                            >
+                              {initials(supporter.name)}
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+                    <span>{supportCountLabel(item.supportCount)}</span>
+                    <span>/</span>
+                    <span>{item.socialProof}</span>
+                    {item.supportCount > 0 ? (
+                      <>
+                        <span>/</span>
+                        <span>including 1 from your trusted circle</span>
+                      </>
+                    ) : null}
+                  </div>
                 </Link>
               </div>
 
               <div className="mt-4 grid grid-cols-4 border-t border-line/70 pt-2 pl-14">
                 <button
                   type="button"
-                  onClick={() => setFlash("Supported.")}
-                  className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
+                  onClick={() => {
+                    setSupportedItemIds((current) => new Set(current).add(item.id));
+                    setFlash("Supported.");
+                  }}
+                  className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-xs font-medium transition hover:bg-panel ${
+                    supportedItemIds.has(item.id) ? "text-foreground" : "text-muted hover:text-foreground"
+                  }`}
                 >
                   <SupportIcon />
-                  <span>Support</span>
+                  <span>{supportedItemIds.has(item.id) ? "Supported" : "Support"}</span>
                 </button>
                 <Link
                   href={item.discussionId ? `/groups/${item.groupId}/discussions/${item.discussionId}` : `/groups/${item.groupId}/votes`}
