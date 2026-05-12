@@ -131,10 +131,10 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
   }
 
   return (
-    <details id="build-profile" className="group rounded-[24px] border border-line bg-white p-4 shadow-sm">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+    <section id="build-profile" className="rounded-[24px] border border-line bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold">About me</h2>
+          <h2 className="text-base font-semibold">About Me</h2>
           <p className="mt-1 text-sm leading-5 text-muted">
             Add context curators use to understand your fit.
           </p>
@@ -142,7 +142,7 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
         <span className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-medium text-muted">
           {completed}/{fields.length} complete
         </span>
-      </summary>
+      </div>
 
       <p className="mt-4 text-sm leading-6 text-muted">
         Complete these once. Leave anything blank. Your profile helps curators and members understand where you can contribute.
@@ -182,6 +182,6 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
         </button>
         {flash ? <p className="text-sm text-muted">{flash}</p> : null}
       </div>
-    </details>
+    </section>
   );
 }

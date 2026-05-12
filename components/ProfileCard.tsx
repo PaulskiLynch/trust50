@@ -1,14 +1,11 @@
 "use client";
 
-import Image from "next/image";
+import Link from "next/link";
 
 type ProfileUser = {
   id: string;
   name: string | null;
-  avatarUrl: string | null;
   decisionHistory: { title: string; impact: string; groupName?: string }[];
-  helpTopics: string[];
-  hasUserHelpTopics: boolean;
   trustCount: number;
   activeGroups: { id: string; name: string }[];
 };
@@ -33,50 +30,48 @@ function paddedTrustScore(score: number) {
 export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
   return (
     <section className="rounded-3xl border border-line bg-white p-6 shadow-sm">
-      <div className="flex items-start gap-4">
-        <Image
-          src={user.avatarUrl || "/profile-placeholder.svg"}
-          alt={user.name || "User avatar"}
-          width={64}
-          height={64}
-          className="h-16 w-16 rounded-full object-cover"
-        />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-3xl font-semibold tracking-tight">{user.name || "Current user"}</h1>
-          <p className="mt-1 text-sm leading-6 text-muted">
-            {isOwnProfile ? "Your profile is a feed of judgment, not a resume." : "This profile is a feed of judgment, not a resume."}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6 space-y-6">
+      <div className="space-y-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Active Circles</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {user.activeGroups.slice(0, 3).map((group) => (
-              <span key={group.id} className="inline-flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-medium text-foreground">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {user.activeGroups.slice(0, 4).map((group) => (
+              <Link
+                key={group.id}
+                href={`/groups/${group.id}`}
+                className="rounded-2xl border border-line bg-panel px-4 py-3 text-sm font-medium text-foreground transition hover:border-foreground"
+              >
                 {group.name}
-              </span>
+              </Link>
             ))}
-            {user.activeGroups.length > 3 ? (
-              <span className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-medium text-muted">
-                +{user.activeGroups.length - 3} more
-              </span>
-            ) : null}
             {!user.activeGroups.length ? (
-              <span className="rounded-full border border-dashed border-line bg-panel px-3 py-1.5 text-xs font-medium text-muted">
+              <span className="rounded-2xl border border-dashed border-line bg-panel px-4 py-3 text-sm font-medium text-muted">
                 No active circles yet
               </span>
             ) : null}
           </div>
+          {isOwnProfile ? (
+            <Link
+              href="/explore-groups"
+              className="mt-4 inline-flex rounded-full border border-line bg-panel px-3 py-1.5 text-sm font-medium text-foreground transition hover:border-foreground"
+            >
+              Manage Circles
+            </Link>
+          ) : null}
         </div>
 
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Trust Level</p>
-          <p className="mt-2 text-sm font-medium text-foreground">
-            {paddedTrustScore(user.trustCount)} / 200 <span className="text-muted">/</span> {trustStatus(user.trustCount)}
-          </p>
+          <div className="mt-3 space-y-2">
+            <div className="h-2 overflow-hidden rounded-full bg-panel">
+              <div
+                className="h-full rounded-full bg-foreground transition-[width]"
+                style={{ width: `${Math.max(4, (Math.min(user.trustCount, 200) / 200) * 100)}%` }}
+              />
+            </div>
+            <p className="text-sm font-medium text-foreground">
+              {paddedTrustScore(user.trustCount)} / 200 <span className="text-muted">/</span> {trustStatus(user.trustCount)}
+            </p>
+          </div>
         </div>
 
         <div>
@@ -89,31 +84,6 @@ export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
               </div>
             ))}
           </div>
-        </div>
-
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">What I Can Help With</p>
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            {user.hasUserHelpTopics ? (
-              user.helpTopics.slice(0, 6).map((tag) => (
-                <span key={tag} className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-medium text-foreground">
-                  <span className="mr-1.5 text-muted">[x]</span>
-                  {tag}
-                </span>
-              ))
-            ) : (
-              <a href="#build-profile" className="rounded-full border border-dashed border-line bg-panel px-3 py-1.5 text-xs font-medium text-muted transition hover:border-foreground hover:text-foreground">
-                Please choose your topics in About me
-              </a>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Ask Me About</p>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            These are decisions I have actually made. Start there.
-          </p>
         </div>
       </div>
     </section>
