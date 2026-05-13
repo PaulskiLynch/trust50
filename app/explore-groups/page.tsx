@@ -144,14 +144,6 @@ function specialtyLabel(taxonomy: RoomTaxonomy) {
   return taxonomy.specialty.replace(/\s+/g, " ").trim();
 }
 
-function hiddenReason(group: Group) {
-  if (group.id === "group-women-pharma") {
-    return "This circle is for women leaders in pharma. Your current profile does not match that entry signal.";
-  }
-
-  return "Your current profile does not match this circle's entry signal.";
-}
-
 function tokenizeSearch(text: string) {
   return text
     .toLowerCase()
@@ -173,21 +165,6 @@ function queryMatchScore(group: Group, query: string) {
 
   const haystack = searchHaystack(group);
   return tokens.reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0);
-}
-
-function suggestionScore(group: Group, memberRooms: Group[], query: string) {
-  const taxonomy = getRoomTaxonomy(group);
-  const memberDomains = new Set(memberRooms.map((room) => getRoomTaxonomy(room).domain));
-  const memberCategories = new Set(memberRooms.map((room) => getRoomTaxonomy(room).category));
-  let score = 0;
-
-  score += queryMatchScore(group, query) * 30;
-  if (!memberDomains.has(taxonomy.domain)) score += 25;
-  if (memberCategories.has(taxonomy.category)) score += 15;
-  if (!group.price || group.price <= 0) score += 8;
-  score += Math.max(0, 50 - group.memberCount) / 10;
-
-  return score;
 }
 
 export default function ExploreGroupsPage() {
@@ -244,33 +221,12 @@ export default function ExploreGroupsPage() {
   );
 
   const strongMatches = useMemo(() => {
-    return candidateGroups
-      .filter((group) => {
-        if (!hasSearch) return true;
-        return queryMatchScore(group, normalizedQuery) >= Math.max(2, Math.ceil(queryTokens.length * 0.66));
-      })
-      .sort((left, right) => suggestionScore(right, memberRooms, normalizedQuery) - suggestionScore(left, memberRooms, normalizedQuery))
-      .slice(0, 3);
-  }, [candidateGroups, hasSearch, memberRooms, normalizedQuery, queryTokens.length]);
-
-  const adjacentGroups = useMemo(() => {
-    const strongIds = new Set(strongMatches.map((group) => group.id));
     if (!hasSearch) return [];
-
     return candidateGroups
-      .filter((group) => !strongIds.has(group.id))
       .filter((group) => queryMatchScore(group, normalizedQuery) > 0)
-      .sort((left, right) => suggestionScore(right, memberRooms, normalizedQuery) - suggestionScore(left, memberRooms, normalizedQuery))
-      .slice(0, 3);
-  }, [candidateGroups, hasSearch, memberRooms, normalizedQuery, strongMatches]);
-
-  const excludedRooms = useMemo(
-    () =>
-      groups
-        .filter((group) => group.id === "group-women-pharma")
-        .filter((group) => getMembership(group, currentUserId)?.status !== "active"),
-    [currentUserId, groups],
-  );
+      .sort((left, right) => queryMatchScore(right, normalizedQuery) - queryMatchScore(left, normalizedQuery))
+      .slice(0, 8);
+  }, [candidateGroups, hasSearch, normalizedQuery]);
 
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10">
@@ -359,8 +315,14 @@ export default function ExploreGroupsPage() {
 
           <div className="mt-5 space-y-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-              {hasSearch ? `Circles matching "${normalizedQuery}"` : "Recommended for you"}
+              {hasSearch ? `Circles matching "${normalizedQuery}"` : "Start or search"}
             </p>
+            {!hasSearch ? (
+              <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-5 text-sm text-muted">
+                <p className="font-medium text-foreground">Start a new circle or search for an existing one.</p>
+                <p className="mt-1">We only show circles when you search, so discovery stays intentional and clean.</p>
+              </div>
+            ) : null}
             {strongMatches.map((group) => {
               const membership = getMembership(group, currentUserId);
               const taxonomy = getRoomTaxonomy(group);
@@ -405,63 +367,12 @@ export default function ExploreGroupsPage() {
               );
             })}
 
-            {hasSearch && adjacentGroups.length ? (
-              <div className="space-y-3 pt-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Adjacent circles</p>
-                {adjacentGroups.map((group) => {
-                  const membership = getMembership(group, currentUserId);
-                  const taxonomy = getRoomTaxonomy(group);
-                  const actionLabel =
-                    membership?.status === "waitlist"
-                      ? "In queue"
-                      : membership?.status === "pending"
-                        ? "In review"
-                        : "Request";
-
-                  return (
-                    <article key={group.id} className="rounded-2xl border border-line bg-white px-4 py-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-base font-semibold text-foreground">{group.name}</h3>
-                          <p className="mt-1 text-sm text-muted">
-                            {priceLabel(group.price)} / {group.memberCount}/50
-                          </p>
-                          <p className="mt-2 line-clamp-2 text-sm text-foreground">{specialtyLabel(taxonomy)}</p>
-                          <p className="mt-1 text-xs text-muted">
-                            {group.owner.name || group.owner.email} / {connectionLabel(group, memberRooms)}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 flex-col gap-2">
-                          <Link
-                            href={`/groups/${group.id}`}
-                            className="rounded-full bg-foreground px-4 py-2 text-center text-sm font-medium text-white transition hover:opacity-90"
-                          >
-                            Preview
-                          </Link>
-                          <Link
-                            href={`/groups/${group.id}/apply`}
-                            className="rounded-full border border-line bg-white px-4 py-2 text-center text-sm font-medium text-foreground transition hover:border-foreground"
-                          >
-                            {actionLabel}
-                          </Link>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : null}
-
             {!loading && !strongMatches.length ? (
               <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-5 text-sm text-muted">
                 <p className="font-medium text-foreground">
-                  {hasSearch ? `No circles match "${normalizedQuery}" yet.` : "No recommended circles yet."}
+                  {hasSearch ? `No circles match "${normalizedQuery}" yet.` : "No circles shown yet."}
                 </p>
-                {hasSearch && adjacentGroups.length ? (
-                  <p className="mt-1">The adjacent circles above are nearby, but not exact.</p>
-                ) : (
-                  <p className="mt-1">Start one for this gap, or search for a broader context.</p>
-                )}
+                <p className="mt-1">Start one for this gap, or search for a broader context.</p>
                 <Link
                   href={hasSearch ? `/start-a-group?name=${encodeURIComponent(normalizedQuery)}` : "/start-a-group"}
                   className="mt-4 inline-flex rounded-full bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
@@ -471,37 +382,6 @@ export default function ExploreGroupsPage() {
               </div>
             ) : null}
           </div>
-
-          {excludedRooms.length ? (
-            <div className="mt-5 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Not suggested</p>
-              {excludedRooms.map((group) => {
-                const taxonomy = getRoomTaxonomy(group);
-
-                return (
-                  <article key={group.id} className="rounded-2xl border border-line bg-white px-4 py-4 text-sm">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <h3 className="truncate font-semibold text-foreground">{group.name}</h3>
-                        <p className="mt-1 text-muted">
-                          {priceLabel(group.price)} / {group.memberCount}/50
-                        </p>
-                        <p className="mt-2 line-clamp-2 text-foreground">{specialtyLabel(taxonomy)}</p>
-                        <p className="mt-1 text-xs text-muted">{group.owner.name || group.owner.email}</p>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-panel px-3 py-1.5 text-xs font-medium text-muted">
-                        Does not match
-                      </span>
-                    </div>
-                    <details className="mt-3 text-xs text-muted">
-                      <summary className="cursor-pointer font-medium text-foreground">Why?</summary>
-                      <p className="mt-2 leading-5">{hiddenReason(group)}</p>
-                    </details>
-                  </article>
-                );
-              })}
-            </div>
-          ) : null}
         </section>
 
         <nav className="sticky bottom-4 grid grid-cols-3 overflow-hidden rounded-full border border-line bg-white p-1 shadow-sm">
