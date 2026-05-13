@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { AppTopNav } from "@/components/AppTopNav";
 
 type User = {
   id: string;
@@ -170,6 +171,7 @@ export default function ApplyPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-background px-6 py-16 text-foreground">
       <div className="mx-auto max-w-3xl space-y-8">
+        <AppTopNav activeTab="circles" currentUserId={currentUserId} />
         <Link href={groupId ? `/groups/${groupId}` : "/"} className="text-sm font-medium text-muted transition hover:text-foreground">
           Back to room
         </Link>
