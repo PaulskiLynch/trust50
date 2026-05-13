@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { AppTopNav } from "@/components/AppTopNav";
 
 type User = {
   id: string;
@@ -160,33 +161,6 @@ function SkipIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
       <path d="m7 7 10 10M17 7 7 17" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function RoomsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
-      <path d="M4 10.5 12 4l8 6.5V20H4v-9.5Z" strokeLinejoin="round" />
-      <path d="M9 20v-6h6v6" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function MeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
-      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-      <path d="M4.5 21a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function SignOutIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.8]">
-      <path d="M10 5H6.5A2.5 2.5 0 0 0 4 7.5v9A2.5 2.5 0 0 0 6.5 19H10" strokeLinecap="round" />
-      <path d="M14 8l4 4-4 4M18 12H9" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -458,12 +432,6 @@ export default function Home() {
     setIsLinkedInSigningIn(false);
   }
 
-  async function handleSignOut() {
-    setFlash(null);
-    await signOut({ redirect: false });
-    setFlash("Signed out");
-  }
-
   if (!currentUserId) {
     return (
       <main className="min-h-screen bg-background px-6 py-12 text-foreground">
@@ -630,38 +598,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10">
       <div className="mx-auto max-w-2xl">
-        <header className="mb-5 flex items-center justify-between gap-3">
-          <div className="flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/trust50-logo.png" alt="Trust50" className="h-16 w-16 rounded-2xl object-contain sm:h-14 sm:w-14" />
-          </div>
-          <div className="flex items-end gap-1 sm:gap-3">
-            <Link
-              href="/explore-groups"
-              className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
-            >
-              <RoomsIcon />
-              <span>Circles</span>
-            </Link>
-            {currentUser ? (
-              <Link
-                href={`/members/${currentUser.id}`}
-                className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
-              >
-                <MeIcon />
-                <span>Me</span>
-              </Link>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void handleSignOut()}
-              className="flex min-w-12 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-panel hover:text-foreground"
-            >
-              <SignOutIcon />
-              <span>Out</span>
-            </button>
-          </div>
-        </header>
+        <AppTopNav activeTab="feed" currentUserId={currentUser?.id ?? null} />
 
         {flash ? (
           <div className="mb-4 rounded-2xl border border-line bg-white px-4 py-3 text-sm text-muted shadow-sm">

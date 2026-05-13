@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 
+import { AppTopNav } from "@/components/AppTopNav";
 import {
   SAMPLE_ROOM_TAXONOMY,
   fallbackRoomTaxonomy,
@@ -274,25 +275,7 @@ export default function ExploreGroupsPage() {
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10">
       <div className="mx-auto max-w-2xl space-y-5">
-        <header className="flex items-center justify-between gap-3">
-          <Link href="/" aria-label="Trust50 home" className="shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/trust50-logo.png" alt="Trust50" className="h-16 w-16 rounded-2xl object-contain sm:h-14 sm:w-14" />
-          </Link>
-          <nav className="flex items-center gap-1 text-xs font-medium">
-            <Link href="/" className="rounded-xl px-3 py-2 text-muted transition hover:bg-panel hover:text-foreground">
-              Wire
-            </Link>
-            <Link href="/explore-groups" className="rounded-xl bg-foreground px-3 py-2 text-white">
-              Circles
-            </Link>
-            {currentUserId ? (
-              <Link href={`/members/${currentUserId}`} className="rounded-xl px-3 py-2 text-muted transition hover:bg-panel hover:text-foreground">
-                Me
-              </Link>
-            ) : null}
-          </nav>
-        </header>
+        <AppTopNav activeTab="circles" currentUserId={currentUserId} />
 
         {flash ? (
           <div className="rounded-2xl border border-line bg-white px-5 py-3 text-sm text-muted shadow-sm">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { GroupStatus } from "@prisma/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { AppTopNav } from "@/components/AppTopNav";
 
 type DemoUser = {
   id: string;
@@ -565,6 +566,7 @@ export default function GroupDetailPage({ params }: PageProps) {
   return (
     <main className="min-h-screen overflow-x-hidden bg-background px-4 py-8 text-foreground sm:px-6 sm:py-16">
       <div className="mx-auto max-w-6xl space-y-8">
+        <AppTopNav activeTab="circles" currentUserId={currentUserId} />
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 space-y-2">
             <Link href="/" className="text-sm font-medium text-muted transition hover:text-foreground">
