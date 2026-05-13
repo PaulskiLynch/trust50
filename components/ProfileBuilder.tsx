@@ -69,9 +69,8 @@ const fields: ProfileField[] = [
   },
   {
     key: "fitRoles",
-    label: "Rooms I'm a fit for",
-    placeholder: "Founder/operator/investor/specialist, plus industries",
-    textarea: true,
+    label: "Looking for (optional, 1 line)",
+    placeholder: "Next board role, feedback on pricing model, peer review of ops playbook",
   },
   {
     key: "proof",
@@ -93,6 +92,7 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
   );
   const [flash, setFlash] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const completionTarget = 10;
 
   const completed = fields.filter((field) => form[field.key].trim()).length;
 
@@ -140,7 +140,7 @@ export function ProfileBuilder({ profile }: ProfileBuilderProps) {
           </p>
         </div>
         <span className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-medium text-muted">
-          {completed}/{fields.length} complete
+          {completed}/{completionTarget} complete
         </span>
       </div>
 
