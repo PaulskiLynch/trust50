@@ -328,7 +328,7 @@ export default function ExploreGroupsPage() {
 
             <Link
               href="/start-a-group"
-              className="block rounded-2xl border border-dashed border-line bg-white px-4 py-4 text-sm font-medium text-foreground transition hover:border-foreground"
+              className="inline-flex rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
             >
               + Start a new circle
             </Link>
