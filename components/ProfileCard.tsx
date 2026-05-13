@@ -8,7 +8,7 @@ type ProfileUser = {
   decisionHistory: { title: string; impact: string; groupName?: string }[];
   trustCount: number;
   activeGroups: { id: string; name: string }[];
-  pendingGroups?: { id: string; name: string }[];
+  pendingGroups?: { id: string; name: string; status?: string }[];
 };
 
 type ProfileCardProps = {
@@ -18,6 +18,11 @@ type ProfileCardProps = {
 
 export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
   const pendingGroups = isOwnProfile ? user.pendingGroups ?? [] : [];
+  const queuedLabel = (status?: string) => {
+    if (status === "pending") return "In review";
+    if (status === "invited") return "Invited";
+    return "In queue";
+  };
 
   return (
     <section className="rounded-3xl border border-line bg-white p-6 shadow-sm">
@@ -44,7 +49,7 @@ export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
                 <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
                 <span className="min-w-0 truncate">{group.name}</span>
                 <span className="ml-auto shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
-                  Pending
+                  {queuedLabel(group.status)}
                 </span>
               </Link>
             ))}

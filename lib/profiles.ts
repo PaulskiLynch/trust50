@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { buildCredibilityProfile } from "@/lib/credibility";
 
+const queuedStatuses = new Set(["pending", "waitlist", "invited"]);
+
 type ProfileGroup = {
   id: string;
   name: string;
@@ -118,8 +120,8 @@ export async function getAccessibleProfile(viewerId: string, targetUserId: strin
     .filter((membership) => membership.role !== "owner" && membership.status === "active")
     .map((membership) => membership.group);
   const pendingGroups = targetUser.memberships
-    .filter((membership) => membership.role !== "owner" && membership.status === "pending")
-    .map((membership) => membership.group);
+    .filter((membership) => membership.role !== "owner" && queuedStatuses.has(membership.status))
+    .map((membership) => ({ id: membership.group.id, name: membership.group.name, status: membership.status }));
   const sharedGroups = activeGroups.filter((group) =>
     group.memberships.some((membership) => membership.userId === viewerId),
   );
@@ -156,7 +158,7 @@ export async function getAccessibleProfile(viewerId: string, targetUserId: strin
     workEmail: targetUser.workEmail,
     personalEmail: targetUser.personalEmail,
     activeGroups: activeGroups.map((group) => ({ id: group.id, name: group.name })),
-    pendingGroups: pendingGroups.map((group) => ({ id: group.id, name: group.name })),
+    pendingGroups,
     sharedGroups: sharedGroups.map((group) => ({ id: group.id, name: group.name })),
     decisionHistory,
     helpTopics,
@@ -210,8 +212,8 @@ export async function getCurrentUserProfile(viewerId: string) {
     .filter((membership) => membership.role !== "owner" && membership.status === "active")
     .map((membership) => membership.group);
   const pendingGroups = user.memberships
-    .filter((membership) => membership.role !== "owner" && membership.status === "pending")
-    .map((membership) => membership.group);
+    .filter((membership) => membership.role !== "owner" && queuedStatuses.has(membership.status))
+    .map((membership) => ({ id: membership.group.id, name: membership.group.name, status: membership.status }));
   const credibility = buildCredibilityProfile(user.id, activeGroups, user);
   const decisionHistory = buildDecisionHistory(user.id, activeGroups);
   const helpTopics = buildHelpTopics(decisionHistory, user.helpTags || user.stageIndustry);
@@ -236,7 +238,7 @@ export async function getCurrentUserProfile(viewerId: string) {
     introPolicy: user.introPolicy,
     trustScoreCached: user.trustScoreCached,
     activeGroups: activeGroups.map((group) => ({ id: group.id, name: group.name })),
-    pendingGroups: pendingGroups.map((group) => ({ id: group.id, name: group.name })),
+    pendingGroups,
     decisionHistory,
     helpTopics,
     trustSignals,

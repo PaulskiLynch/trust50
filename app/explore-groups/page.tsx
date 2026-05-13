@@ -78,6 +78,17 @@ function getMembership(group: Group, userId: string | null) {
   return group.memberships.find((membership) => membership.userId === userId) ?? null;
 }
 
+function isUsedSlotStatus(status?: string) {
+  return status === "active" || status === "pending" || status === "waitlist" || status === "invited";
+}
+
+function queueLabel(status?: string) {
+  if (status === "pending") return "In review";
+  if (status === "invited") return "Invited";
+  if (status === "waitlist") return "In queue";
+  return "Joined";
+}
+
 function getRoomTaxonomy(group: Group): RoomTaxonomy {
   return SAMPLE_ROOM_TAXONOMY[group.id] ?? fallbackRoomTaxonomy(`${group.name} ${group.description || ""} ${group.whoFor} ${group.valueProp}`);
 }
@@ -198,13 +209,22 @@ export default function ExploreGroupsPage() {
     })();
   }, []);
 
-  const memberRooms = useMemo(
+  const usedCircles = useMemo(
     () =>
       groups.filter((group) => {
         const membership = getMembership(group, currentUserId);
-        return membership?.status === "active" && membership.role !== "owner";
+        return membership?.role !== "owner" && isUsedSlotStatus(membership?.status);
       }),
     [currentUserId, groups],
+  );
+
+  const memberRooms = useMemo(
+    () =>
+      usedCircles.filter((group) => {
+        const membership = getMembership(group, currentUserId);
+        return membership?.status === "active";
+      }),
+    [currentUserId, usedCircles],
   );
 
   const normalizedQuery = query.trim();
@@ -257,7 +277,7 @@ export default function ExploreGroupsPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Your circles</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">{memberRooms.length}/4 used</h1>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">{usedCircles.length}/4 used</h1>
             </div>
           </div>
 
@@ -266,13 +286,16 @@ export default function ExploreGroupsPage() {
               <div className="rounded-2xl border border-line bg-panel px-4 py-4 text-sm text-muted">Loading circles...</div>
             ) : null}
 
-            {!loading && !memberRooms.length ? (
+            {!loading && !usedCircles.length ? (
               <div className="rounded-2xl border border-line bg-panel px-4 py-4 text-sm text-muted">
                 No circles yet. Start with one trust circle where your context can actually help.
               </div>
             ) : null}
 
-            {memberRooms.map((group) => (
+            {usedCircles.map((group) => {
+              const membership = getMembership(group, currentUserId);
+              const isActive = membership?.status === "active";
+              return (
               <Link
                 key={group.id}
                 href={`/groups/${group.id}`}
@@ -281,15 +304,22 @@ export default function ExploreGroupsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{group.name}</p>
-                    <p className="mt-1 text-xs font-medium text-muted">{roomActivity(group, currentUserId)}</p>
-                    <p className="mt-1 text-xs text-muted">{circleTrustLevel(group, currentUserId)}</p>
-                    {circleContribution(group, currentUserId) ? (
-                      <p className="mt-1 text-xs text-muted">{circleContribution(group, currentUserId)}</p>
-                    ) : null}
+                    {isActive ? (
+                      <>
+                        <p className="mt-1 text-xs font-medium text-muted">{roomActivity(group, currentUserId)}</p>
+                        <p className="mt-1 text-xs text-muted">{circleTrustLevel(group, currentUserId)}</p>
+                        {circleContribution(group, currentUserId) ? (
+                          <p className="mt-1 text-xs text-muted">{circleContribution(group, currentUserId)}</p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <p className="mt-1 text-xs font-medium text-amber-700">{queueLabel(membership?.status)}</p>
+                    )}
                   </div>
                 </div>
               </Link>
-            ))}
+              );
+            })}
 
             <Link
               href="/start-a-group"
