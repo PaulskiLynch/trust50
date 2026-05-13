@@ -136,6 +136,11 @@ function getRoomPriceLabel(group: Group) {
   return group.price && group.price > 0 ? `EUR ${group.price}/mo` : "Free room";
 }
 
+function getRoomTrustScore(group: Group) {
+  const score = (group.trustLinks ?? []).filter((link) => link.status === "active").length;
+  return `${score}/2500`;
+}
+
 function formatRelativeMoment(value: string) {
   const diff = Date.now() - new Date(value).getTime();
   const hour = 60 * 60 * 1000;
@@ -586,6 +591,9 @@ export default function GroupDetailPage({ params }: PageProps) {
                 {getRoomPriceLabel(group)} · {activeMembers.length}/50 members
                 {scholarshipSeats ? ` · ${scholarshipSeats} scholarship seats` : ""}
               </p>
+            ) : null}
+            {group ? (
+              <p className="text-sm text-muted">Trust score {getRoomTrustScore(group)}</p>
             ) : null}
           </div>
           <button

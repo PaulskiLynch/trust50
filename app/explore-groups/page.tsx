@@ -73,6 +73,11 @@ function priceLabel(price: number | null) {
   return price && price > 0 ? `EUR ${price}/mo` : "Free";
 }
 
+function roomTrustScore(group: Group) {
+  const score = (group.trustLinks ?? []).filter((link) => link.status === "active").length;
+  return `${score}/2500`;
+}
+
 function getMembership(group: Group, userId: string | null) {
   if (!userId) return null;
   return group.memberships.find((membership) => membership.userId === userId) ?? null;
@@ -371,6 +376,7 @@ export default function ExploreGroupsPage() {
                       <p className="mt-1 text-sm text-muted">
                         {priceLabel(group.price)} / {group.memberCount}/50
                       </p>
+                      <p className="mt-1 text-xs text-muted">Trust score {roomTrustScore(group)}</p>
                       <p className="mt-2 line-clamp-2 text-sm text-foreground">
                         {specialtyLabel(taxonomy)}
                       </p>
