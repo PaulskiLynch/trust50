@@ -6,6 +6,7 @@ type ProfileIdentityCardProps = {
   profile: {
     name: string | null;
     bio?: string | null;
+    avatarUrl?: string | null;
   };
 };
 
@@ -46,25 +47,45 @@ export function ProfileIdentityCard({ profile }: ProfileIdentityCardProps) {
 
   return (
     <section className="rounded-[24px] border border-line bg-white p-5 shadow-sm">
-      <div className="space-y-3">
-        <label className="block">
-          <span className="sr-only">Name</span>
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-2xl font-semibold tracking-tight text-foreground outline-none transition focus:border-foreground"
-            placeholder="Your name"
-          />
-        </label>
-        <label className="block">
-          <span className="sr-only">Tagline</span>
-          <input
-            value={bio}
-            onChange={(event) => setBio(event.target.value)}
-            className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-muted outline-none transition focus:border-foreground"
-            placeholder="Your profile is a feed of judgment, not a resume."
-          />
-        </label>
+      <div className="flex items-start gap-4">
+        <div className="shrink-0">
+          {profile.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.avatarUrl}
+              alt={name || "Profile image"}
+              className="h-20 w-20 rounded-full object-cover ring-1 ring-line"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/profile-placeholder.svg"
+              alt={name || "Profile image"}
+              className="h-20 w-20 rounded-full object-cover ring-1 ring-line"
+            />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1 space-y-3">
+          <label className="block">
+            <span className="sr-only">Name</span>
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-2xl font-semibold tracking-tight text-foreground outline-none transition focus:border-foreground"
+              placeholder="Your name"
+            />
+          </label>
+          <label className="block">
+            <span className="sr-only">Tagline</span>
+            <input
+              value={bio}
+              onChange={(event) => setBio(event.target.value)}
+              className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-muted outline-none transition focus:border-foreground"
+              placeholder="Your profile is a feed of judgment, not a resume."
+            />
+          </label>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
