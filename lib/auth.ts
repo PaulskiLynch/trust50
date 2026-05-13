@@ -47,7 +47,7 @@ async function syncLinkedInUser(params: {
 
   if (existingUser) {
     const nextName = existingUser.name ?? name;
-    const nextAvatarUrl = existingUser.avatarUrl ?? avatarUrl;
+    const nextAvatarUrl = avatarUrl ?? existingUser.avatarUrl;
     const nextRole = existingUser.role ?? role;
     const nextCompany = existingUser.company ?? company;
 
@@ -153,10 +153,10 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
           scope: "openid profile email",
         },
       },
+      userinfo: "https://api.linkedin.com/v2/userinfo",
       client: {
         token_endpoint_auth_method: "client_secret_post",
       },
-      idToken: true,
       profile(profile) {
         return {
           id: String(profile.sub ?? ""),
