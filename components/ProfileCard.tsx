@@ -15,18 +15,6 @@ type ProfileCardProps = {
   isOwnProfile?: boolean;
 };
 
-function trustStatus(score: number) {
-  if (score >= 151) return "Exceptional";
-  if (score >= 101) return "Deeply trusted";
-  if (score >= 51) return "Respected";
-  if (score >= 21) return "Trusted";
-  return "Building trust";
-}
-
-function paddedTrustScore(score: number) {
-  return String(Math.min(score, 200)).padStart(2, "0");
-}
-
 export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
   return (
     <section className="rounded-3xl border border-line bg-white p-6 shadow-sm">
@@ -69,29 +57,20 @@ export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Trust Level</p>
-          <div className="mt-3 space-y-2">
-            <div className="h-2 overflow-hidden rounded-full bg-panel">
-              <div
-                className="h-full rounded-full bg-foreground transition-[width]"
-                style={{ width: `${Math.max(4, (Math.min(user.trustCount, 200) / 200) * 100)}%` }}
-              />
-            </div>
-            <p className="text-sm font-medium text-foreground">
-              {paddedTrustScore(user.trustCount)} / 200 <span className="text-muted">/</span> {trustStatus(user.trustCount)}
-            </p>
-          </div>
-        </div>
-
-        <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Recently Trusted For</p>
           <div className="mt-4 space-y-3">
-            {user.decisionHistory.map((decision) => (
-              <div key={decision.title} className="border-l border-line pl-4">
-                <p className="text-sm font-medium text-foreground">{decision.title}</p>
-                <p className="mt-1 text-xs text-muted">{decision.impact}</p>
+            {user.trustCount > 0 && user.decisionHistory.length ? (
+              user.decisionHistory.map((decision) => (
+                <div key={decision.title} className="border-l border-line pl-4">
+                  <p className="text-sm font-medium text-foreground">{decision.title}</p>
+                  <p className="mt-1 text-xs text-muted">{decision.impact}</p>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-line bg-panel px-4 py-4 text-sm text-muted">
+                No trust-backed decisions yet. Once members trust your judgment, your recent trusted decisions will show here.
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>

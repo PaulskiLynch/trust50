@@ -104,6 +104,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 name: profile.name,
                 bio: profile.bio,
                 avatarUrl: profile.avatarUrl,
+                trustCount: profile.trustScoreCached,
               }}
             />
             <ProfileCard

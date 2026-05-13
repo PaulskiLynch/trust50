@@ -19,20 +19,7 @@ function decisionTitle(text: string) {
 }
 
 function fallbackDecisionHistory() {
-  return [
-    {
-      title: "Hired first VP Product in Warsaw",
-      impact: "3 found helpful (1 day ago)",
-    },
-    {
-      title: "Held rate on concessions during softening market",
-      impact: "2 used in decision (3 days ago)",
-    },
-    {
-      title: "Switched from outsourced to in-house maintenance",
-      impact: "4 asked follow-ups (last week)",
-    },
-  ];
+  return [];
 }
 
 function buildDecisionHistory(userId: string, groups: ProfileGroup[]) {

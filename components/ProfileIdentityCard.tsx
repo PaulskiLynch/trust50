@@ -7,8 +7,21 @@ type ProfileIdentityCardProps = {
     name: string | null;
     bio?: string | null;
     avatarUrl?: string | null;
+    trustCount: number;
   };
 };
+
+function trustStatus(score: number) {
+  if (score >= 151) return "Exceptional";
+  if (score >= 101) return "Deeply trusted";
+  if (score >= 51) return "Respected";
+  if (score >= 21) return "Trusted";
+  return "Building trust";
+}
+
+function paddedTrustScore(score: number) {
+  return String(Math.min(score, 200)).padStart(2, "0");
+}
 
 export function ProfileIdentityCard({ profile }: ProfileIdentityCardProps) {
   const [name, setName] = useState(profile.name || "");
@@ -85,6 +98,21 @@ export function ProfileIdentityCard({ profile }: ProfileIdentityCardProps) {
               placeholder="Your profile is a feed of judgment, not a resume."
             />
           </label>
+        </div>
+      </div>
+
+      <div className="mt-5 border-t border-line pt-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Trust Level</p>
+        <div className="mt-3 space-y-2">
+          <div className="h-2 overflow-hidden rounded-full bg-panel">
+            <div
+              className="h-full rounded-full bg-foreground transition-[width]"
+              style={{ width: `${Math.max(4, (Math.min(profile.trustCount, 200) / 200) * 100)}%` }}
+            />
+          </div>
+          <p className="text-sm font-medium text-foreground">
+            {paddedTrustScore(profile.trustCount)} / 200 <span className="text-muted">/</span> {trustStatus(profile.trustCount)}
+          </p>
         </div>
       </div>
 
