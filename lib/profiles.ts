@@ -78,7 +78,6 @@ export async function getAccessibleProfile(viewerId: string, targetUserId: strin
     where: { id: targetUserId },
     include: {
       memberships: {
-        where: { status: "active" },
         include: {
           group: {
             select: {
@@ -116,7 +115,10 @@ export async function getAccessibleProfile(viewerId: string, targetUserId: strin
   }
 
   const activeGroups = targetUser.memberships
-    .filter((membership) => membership.role !== "owner")
+    .filter((membership) => membership.role !== "owner" && membership.status === "active")
+    .map((membership) => membership.group);
+  const pendingGroups = targetUser.memberships
+    .filter((membership) => membership.role !== "owner" && membership.status === "pending")
     .map((membership) => membership.group);
   const sharedGroups = activeGroups.filter((group) =>
     group.memberships.some((membership) => membership.userId === viewerId),
@@ -154,6 +156,7 @@ export async function getAccessibleProfile(viewerId: string, targetUserId: strin
     workEmail: targetUser.workEmail,
     personalEmail: targetUser.personalEmail,
     activeGroups: activeGroups.map((group) => ({ id: group.id, name: group.name })),
+    pendingGroups: pendingGroups.map((group) => ({ id: group.id, name: group.name })),
     sharedGroups: sharedGroups.map((group) => ({ id: group.id, name: group.name })),
     decisionHistory,
     helpTopics,
@@ -167,7 +170,6 @@ export async function getCurrentUserProfile(viewerId: string) {
     where: { id: viewerId },
     include: {
       memberships: {
-        where: { status: "active" },
         include: {
           group: {
             select: {
@@ -205,7 +207,10 @@ export async function getCurrentUserProfile(viewerId: string) {
   }
 
   const activeGroups = user.memberships
-    .filter((membership) => membership.role !== "owner")
+    .filter((membership) => membership.role !== "owner" && membership.status === "active")
+    .map((membership) => membership.group);
+  const pendingGroups = user.memberships
+    .filter((membership) => membership.role !== "owner" && membership.status === "pending")
     .map((membership) => membership.group);
   const credibility = buildCredibilityProfile(user.id, activeGroups, user);
   const decisionHistory = buildDecisionHistory(user.id, activeGroups);
@@ -230,6 +235,8 @@ export async function getCurrentUserProfile(viewerId: string) {
     proof: user.proof,
     introPolicy: user.introPolicy,
     trustScoreCached: user.trustScoreCached,
+    activeGroups: activeGroups.map((group) => ({ id: group.id, name: group.name })),
+    pendingGroups: pendingGroups.map((group) => ({ id: group.id, name: group.name })),
     decisionHistory,
     helpTopics,
     trustSignals,

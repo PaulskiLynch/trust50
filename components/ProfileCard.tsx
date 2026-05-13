@@ -8,6 +8,7 @@ type ProfileUser = {
   decisionHistory: { title: string; impact: string; groupName?: string }[];
   trustCount: number;
   activeGroups: { id: string; name: string }[];
+  pendingGroups?: { id: string; name: string }[];
 };
 
 type ProfileCardProps = {
@@ -16,6 +17,8 @@ type ProfileCardProps = {
 };
 
 export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
+  const pendingGroups = isOwnProfile ? user.pendingGroups ?? [] : [];
+
   return (
     <section className="rounded-3xl border border-line bg-white p-6 shadow-sm">
       <div className="space-y-6">
@@ -32,7 +35,20 @@ export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
                 {group.name}
               </Link>
             ))}
-            {isOwnProfile && user.activeGroups.length < 4 ? (
+            {pendingGroups.map((group) => (
+              <Link
+                key={group.id}
+                href={`/groups/${group.id}`}
+                className="flex items-center gap-2 rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 transition hover:border-amber-400"
+              >
+                <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                <span className="min-w-0 truncate">{group.name}</span>
+                <span className="ml-auto shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+                  Pending
+                </span>
+              </Link>
+            ))}
+            {isOwnProfile && user.activeGroups.length + pendingGroups.length < 4 ? (
               <Link
                 href="/explore-groups"
                 className="flex items-center justify-center rounded-2xl border border-dashed border-line bg-white px-4 py-3 text-sm font-medium text-muted transition hover:border-foreground hover:text-foreground"
@@ -40,7 +56,7 @@ export function ProfileCard({ user, isOwnProfile = false }: ProfileCardProps) {
                 + Circle
               </Link>
             ) : null}
-            {!user.activeGroups.length ? (
+            {!user.activeGroups.length && !pendingGroups.length ? (
               <span className="rounded-2xl border border-dashed border-line bg-panel px-4 py-3 text-sm font-medium text-muted">
                 No active circles yet
               </span>

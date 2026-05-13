@@ -115,6 +115,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 decisionHistory: profile.decisionHistory,
                 trustCount: profile.trustScoreCached,
                 activeGroups: profile.activeGroups,
+                pendingGroups: profile.pendingGroups,
               }}
             />
           </section>
@@ -145,6 +146,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
               decisionHistory: profile.decisionHistory,
               trustCount: profile.trustScoreCached,
               activeGroups: profile.activeGroups,
+              pendingGroups: profile.pendingGroups,
             }}
           />
         </section>
