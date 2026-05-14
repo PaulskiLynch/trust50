@@ -136,6 +136,8 @@ export default function AdminPage() {
   const isAdmin = Boolean(session?.user?.isAdmin) || session?.user?.id === "temp-user";
   const [activeSection, setActiveSection] = useState<SectionId>("members");
   const [actingId, setActingId] = useState<string | null>(null);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserName, setNewUserName] = useState("");
   const [proposalDomain, setProposalDomain] = useState("");
   const [proposalReason, setProposalReason] = useState("");
   const [flash, setFlash] = useState<string | null>(null);
@@ -201,6 +203,101 @@ export default function AdminPage() {
     } finally {
       setActingId(null);
       router.refresh();
+    }
+  }
+
+  async function handleCreateUser() {
+    if (!newUserEmail.trim()) {
+      setFlash("Email is required.");
+      return;
+    }
+    setFlash(null);
+    setActingId("create-user");
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newUserEmail.trim(), name: newUserName.trim() }),
+      });
+      const payload = (await response.json()) as { error?: string } & Partial<AdminUserRow>;
+      if (!response.ok) throw new Error(payload.error || "Unable to create user.");
+
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              users: [
+                {
+                  id: String(payload.id),
+                  email: String(payload.email),
+                  name: (payload.name as string | null) ?? null,
+                  trustScoreCached: Number(payload.trustScoreCached ?? 0),
+                  isAdmin: Boolean(payload.isAdmin),
+                  activeMemberships: 0,
+                  pendingMemberships: 0,
+                  createdAt: String(payload.createdAt),
+                },
+                ...current.users,
+              ],
+              audit: [
+                {
+                  id: `local-${Date.now()}`,
+                  actor: session?.user?.name || session?.user?.email || "Admin",
+                  area: "members",
+                  action: "create_user",
+                  target: `user:${String(payload.id)}`,
+                  createdAt: new Date().toISOString(),
+                },
+                ...current.audit,
+              ],
+            }
+          : current,
+      );
+      setNewUserEmail("");
+      setNewUserName("");
+      setFlash("User created.");
+      router.refresh();
+    } catch (err) {
+      setFlash(err instanceof Error ? err.message : "Unable to create user.");
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handleDeleteUser(id: string) {
+    setFlash(null);
+    setActingId(id);
+    try {
+      const response = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Unable to delete user.");
+
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              users: current.users.filter((user) => user.id !== id),
+              audit: [
+                {
+                  id: `local-${Date.now()}`,
+                  actor: session?.user?.name || session?.user?.email || "Admin",
+                  area: "members",
+                  action: "delete_user",
+                  target: `user:${id}`,
+                  createdAt: new Date().toISOString(),
+                },
+                ...current.audit,
+              ],
+            }
+          : current,
+      );
+
+      setFlash("User deleted.");
+      router.refresh();
+    } catch (err) {
+      setFlash(err instanceof Error ? err.message : "Unable to delete user.");
+    } finally {
+      setActingId(null);
     }
   }
 
@@ -319,6 +416,28 @@ export default function AdminPage() {
             {!loading && data && activeSection === "members" ? (
               <div className="rounded-3xl border border-line bg-white p-4 shadow-sm">
                 <p className="mb-3 text-sm font-semibold">Members</p>
+                <div className="mb-4 grid gap-2 rounded-2xl border border-line bg-panel/50 p-3 sm:grid-cols-[1fr_1fr_auto]">
+                  <input
+                    value={newUserEmail}
+                    onChange={(event) => setNewUserEmail(event.target.value)}
+                    placeholder="Email"
+                    className="rounded-xl border border-line bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={newUserName}
+                    onChange={(event) => setNewUserName(event.target.value)}
+                    placeholder="Name (optional)"
+                    className="rounded-xl border border-line bg-white px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateUser()}
+                    disabled={actingId === "create-user"}
+                    className="rounded-full bg-foreground px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+                  >
+                    Add user
+                  </button>
+                </div>
                 <div className="space-y-3">
                   {data.users.map((user) => (
                     <div key={user.id} className="rounded-2xl border border-line bg-panel/50 p-4">
@@ -327,9 +446,19 @@ export default function AdminPage() {
                           <p className="font-medium text-foreground">{user.name || user.email}</p>
                           <p className="text-sm text-muted">{user.email}</p>
                         </div>
-                        <Link href={`/members/${user.id}`} className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-medium text-foreground">
-                          View profile
-                        </Link>
+                        <div className="flex gap-2">
+                          <Link href={`/members/${user.id}`} className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-medium text-foreground">
+                            View profile
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteUser(user.id)}
+                            disabled={actingId === user.id || user.id === session.user.id}
+                            className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                       <p className="mt-2 text-xs text-muted">
                         Trust: {Math.min(user.trustScoreCached, 200)}/200 ({trustStatus(user.trustScoreCached)}) / Active circles: {user.activeMemberships} / Queued: {user.pendingMemberships} / Joined: {formatDate(user.createdAt)}
