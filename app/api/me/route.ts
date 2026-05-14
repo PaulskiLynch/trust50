@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(2).max(80).optional(),
+  avatarUrl: z.string().trim().max(1000).url().optional().or(z.literal("")),
   company: z.string().trim().max(120).optional().or(z.literal("")),
   role: z.string().trim().max(120).optional().or(z.literal("")),
   location: z.string().trim().max(120).optional().or(z.literal("")),
@@ -64,6 +65,7 @@ export async function PATCH(request: Request) {
       where: { id: viewerId },
       data: {
         ...(payload.name !== undefined ? { name: payload.name } : {}),
+        ...(payload.avatarUrl !== undefined ? { avatarUrl: payload.avatarUrl || null } : {}),
         ...(payload.company !== undefined ? { company: payload.company || null } : {}),
         ...(payload.role !== undefined ? { role: payload.role || null } : {}),
         ...(payload.location !== undefined ? { location: payload.location || null } : {}),

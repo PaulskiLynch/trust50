@@ -26,6 +26,7 @@ function paddedTrustScore(score: number) {
 export function ProfileIdentityCard({ profile }: ProfileIdentityCardProps) {
   const [name, setName] = useState(profile.name || "");
   const [bio, setBio] = useState(profile.bio || "Your profile is a feed of judgment, not a resume.");
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl || "");
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export function ProfileIdentityCard({ profile }: ProfileIdentityCardProps) {
         body: JSON.stringify({
           name: name.trim(),
           bio: bio.trim(),
+          avatarUrl: avatarUrl.trim(),
         }),
       });
       const data = await response.json();
@@ -50,6 +52,7 @@ export function ProfileIdentityCard({ profile }: ProfileIdentityCardProps) {
 
       setName(data.name || "");
       setBio(data.bio || "");
+      setAvatarUrl(data.avatarUrl || "");
       setFlash("Saved.");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : "Unable to save profile.");
@@ -62,10 +65,10 @@ export function ProfileIdentityCard({ profile }: ProfileIdentityCardProps) {
     <section className="rounded-[24px] border border-line bg-white p-5 shadow-sm">
       <div className="flex items-start gap-4">
         <div className="shrink-0">
-          {profile.avatarUrl ? (
+          {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={profile.avatarUrl}
+              src={avatarUrl}
               alt={name || "Profile image"}
               className="h-20 w-20 rounded-full object-cover ring-1 ring-line"
             />
@@ -97,6 +100,24 @@ export function ProfileIdentityCard({ profile }: ProfileIdentityCardProps) {
               className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-muted outline-none transition focus:border-foreground"
               placeholder="Your profile is a feed of judgment, not a resume."
             />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted">Profile image URL</span>
+            <div className="flex items-center gap-2">
+              <input
+                value={avatarUrl}
+                onChange={(event) => setAvatarUrl(event.target.value)}
+                className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground"
+                placeholder="https://..."
+              />
+              <button
+                type="button"
+                onClick={() => setAvatarUrl("")}
+                className="rounded-full border border-line bg-white px-3 py-2 text-xs font-medium text-muted transition hover:border-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            </div>
           </label>
         </div>
       </div>
