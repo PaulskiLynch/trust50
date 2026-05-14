@@ -50,11 +50,30 @@ export async function POST(request: Request, context: RouteContext) {
       data: { status: MembershipStatus.active },
       select: { id: true, status: true },
     });
+    await prisma.interestLead.create({
+      data: {
+        email: session.user.email || "admin@trust50.local",
+        kind: "admin_audit",
+        source: "applications_queue",
+        signal: "accept",
+        note: `membership:${membership.id}`,
+        name: session.user.name || "Admin",
+      },
+    });
 
     return NextResponse.json({ ok: true, membership: updated });
   }
 
   await prisma.membership.delete({ where: { id } });
+  await prisma.interestLead.create({
+    data: {
+      email: session.user.email || "admin@trust50.local",
+      kind: "admin_audit",
+      source: "applications_queue",
+      signal: "reject",
+      note: `membership:${membership.id}`,
+      name: session.user.name || "Admin",
+    },
+  });
   return NextResponse.json({ ok: true });
 }
-

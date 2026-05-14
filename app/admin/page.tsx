@@ -47,14 +47,42 @@ type AdminPayload = {
   users: AdminUserRow[];
   circles: AdminCircleRow[];
   queue: AdminQueueRow[];
+  trustSafety: {
+    activeTrustLinks: number;
+    reciprocalPairs: number;
+    medianRoomTrust: number;
+    riskLevel: "Low" | "Medium" | "High";
+  };
+  taxonomy: {
+    domains: string[];
+    proposals: {
+      id: string;
+      proposedBy: string;
+      domain: string;
+      reason: string;
+      status: string;
+      createdAt: string;
+    }[];
+  };
+  audit: {
+    id: string;
+    actor: string;
+    area: string;
+    action: string;
+    target: string;
+    createdAt: string;
+  }[];
 };
 
-type SectionId = "members" | "circles" | "queue";
+type SectionId = "members" | "circles" | "queue" | "trust-safety" | "taxonomy" | "audit";
 
 const sections: { id: SectionId; label: string }[] = [
   { id: "members", label: "Members" },
   { id: "circles", label: "Circles" },
   { id: "queue", label: "Applications Queue" },
+  { id: "trust-safety", label: "Trust & Safety" },
+  { id: "taxonomy", label: "Taxonomy Governance" },
+  { id: "audit", label: "Audit Log" },
 ];
 
 function formatDate(value: string) {
@@ -108,6 +136,8 @@ export default function AdminPage() {
   const isAdmin = Boolean(session?.user?.isAdmin) || session?.user?.id === "temp-user";
   const [activeSection, setActiveSection] = useState<SectionId>("members");
   const [actingId, setActingId] = useState<string | null>(null);
+  const [proposalDomain, setProposalDomain] = useState("");
+  const [proposalReason, setProposalReason] = useState("");
   const [flash, setFlash] = useState<string | null>(null);
   const { data, loading, error, setData } = useAdminData(status === "authenticated" && isAdmin);
 
@@ -171,6 +201,62 @@ export default function AdminPage() {
     } finally {
       setActingId(null);
       router.refresh();
+    }
+  }
+
+  async function handleProposalSubmit() {
+    if (!proposalDomain.trim() || !proposalReason.trim()) {
+      setFlash("Add both domain and reason.");
+      return;
+    }
+    setFlash(null);
+    try {
+      const response = await fetch("/api/admin/taxonomy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: proposalDomain.trim(), reason: proposalReason.trim() }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Unable to submit proposal.");
+      setFlash("Domain proposal submitted.");
+      setProposalDomain("");
+      setProposalReason("");
+      router.refresh();
+    } catch (err) {
+      setFlash(err instanceof Error ? err.message : "Unable to submit proposal.");
+    }
+  }
+
+  async function handleProposalReview(id: string, action: "approve" | "reject") {
+    setActingId(id);
+    setFlash(null);
+    try {
+      const response = await fetch(`/api/admin/taxonomy/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Unable to review proposal.");
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              taxonomy: {
+                ...current.taxonomy,
+                proposals: current.taxonomy.proposals.map((proposal) =>
+                  proposal.id === id ? { ...proposal, status: action === "approve" ? "approved" : "rejected" } : proposal,
+                ),
+              },
+            }
+          : current,
+      );
+      setFlash(action === "approve" ? "Proposal approved." : "Proposal rejected.");
+      router.refresh();
+    } catch (err) {
+      setFlash(err instanceof Error ? err.message : "Unable to review proposal.");
+    } finally {
+      setActingId(null);
     }
   }
 
@@ -327,6 +413,102 @@ export default function AdminPage() {
                         <p><span className="font-medium text-foreground">Contribution:</span> {item.contributionWhy || "—"}</p>
                         <p><span className="font-medium text-foreground">Context:</span> {item.relevantContext || "—"}</p>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {!loading && data && activeSection === "trust-safety" ? (
+              <div className="rounded-3xl border border-line bg-white p-4 shadow-sm">
+                <p className="mb-3 text-sm font-semibold">Trust & Safety</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-2xl border border-line bg-panel/50 p-4">
+                    <p className="text-xs text-muted">Active trust links</p>
+                    <p className="mt-1 text-xl font-semibold">{data.trustSafety.activeTrustLinks}</p>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-panel/50 p-4">
+                    <p className="text-xs text-muted">Reciprocal pairs</p>
+                    <p className="mt-1 text-xl font-semibold">{data.trustSafety.reciprocalPairs}</p>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-panel/50 p-4">
+                    <p className="text-xs text-muted">Median trust/circle</p>
+                    <p className="mt-1 text-xl font-semibold">{data.trustSafety.medianRoomTrust}</p>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-panel/50 p-4">
+                    <p className="text-xs text-muted">Risk level</p>
+                    <p className="mt-1 text-xl font-semibold">{data.trustSafety.riskLevel}</p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {!loading && data && activeSection === "taxonomy" ? (
+              <div className="rounded-3xl border border-line bg-white p-4 shadow-sm">
+                <p className="mb-3 text-sm font-semibold">Taxonomy Governance</p>
+                <div className="mb-4 rounded-2xl border border-line bg-panel/50 p-4">
+                  <p className="text-xs font-medium text-muted">Current domains</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {data.taxonomy.domains.map((domain) => (
+                      <span key={domain} className="rounded-full border border-line bg-white px-3 py-1 text-xs text-foreground">{domain}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="mb-4 rounded-2xl border border-line bg-panel/50 p-4">
+                  <p className="text-xs font-medium text-muted">Propose a new domain</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+                    <input
+                      value={proposalDomain}
+                      onChange={(event) => setProposalDomain(event.target.value)}
+                      placeholder="Domain name"
+                      className="rounded-xl border border-line bg-white px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={proposalReason}
+                      onChange={(event) => setProposalReason(event.target.value)}
+                      placeholder="Why trust changes quality here"
+                      className="rounded-xl border border-line bg-white px-3 py-2 text-sm"
+                    />
+                    <button onClick={() => void handleProposalSubmit()} className="rounded-full bg-foreground px-4 py-2 text-xs font-medium text-white">
+                      Propose
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {data.taxonomy.proposals.map((proposal) => (
+                    <div key={proposal.id} className="rounded-2xl border border-line bg-panel/50 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{proposal.domain}</p>
+                          <p className="text-xs text-muted">By {proposal.proposedBy} / {formatDate(proposal.createdAt)} / {proposal.status}</p>
+                          <p className="mt-1 text-sm text-muted">{proposal.reason}</p>
+                        </div>
+                        {proposal.status === "proposed" ? (
+                          <div className="flex gap-2">
+                            <button disabled={actingId === proposal.id} onClick={() => void handleProposalReview(proposal.id, "approve")} className="rounded-full bg-foreground px-3 py-1.5 text-xs text-white disabled:opacity-50">Approve</button>
+                            <button disabled={actingId === proposal.id} onClick={() => void handleProposalReview(proposal.id, "reject")} className="rounded-full border border-line bg-white px-3 py-1.5 text-xs text-foreground disabled:opacity-50">Reject</button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {!loading && data && activeSection === "audit" ? (
+              <div className="rounded-3xl border border-line bg-white p-4 shadow-sm">
+                <p className="mb-3 text-sm font-semibold">Audit Log</p>
+                <div className="space-y-3">
+                  {data.audit.length === 0 ? (
+                    <div className="rounded-2xl border border-line bg-panel/50 p-4 text-sm text-muted">No admin actions logged yet.</div>
+                  ) : null}
+                  {data.audit.map((item) => (
+                    <div key={item.id} className="rounded-2xl border border-line bg-panel/50 p-4">
+                      <p className="font-medium text-foreground">{item.actor}</p>
+                      <p className="mt-1 text-sm text-muted">
+                        {item.action} / {item.area} / {item.target || "—"} / {formatDate(item.createdAt)}
+                      </p>
                     </div>
                   ))}
                 </div>
